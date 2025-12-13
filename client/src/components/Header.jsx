@@ -1,38 +1,41 @@
 import React, { useContext } from "react";
 import { Link } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
-import "./Header.css";
+import "../styles/header.css";
 
 const Header = () => {
-  const { user, logout, lastUpdated } = useContext(AuthContext);
+  const { user, logout } = useContext(AuthContext);
 
   return (
     <header className="header">
-      <nav>
-        <Link to="/">Home</Link>
-        {user && (
-          <>
-            <Link to="/locations">Locations</Link>
-            <Link to="/favourites">Favourites</Link>
-            {user.role === "admin" && <Link to="/admin">Admin</Link>}
-          </>
-        )}
-      </nav>
-      <div className="user-info">
+      <div className="header-left">
+        <h1>Cultural Programmes</h1>
+      </div>
+
+      <nav className="header-nav">
         {user ? (
           <>
-            <span>👤 {user.username}</span>
-            <button onClick={logout}>Logout</button>
+            <Link to="/locations">Home</Link>
+            <Link to="/favourites">Favourites</Link>
+            {user.role === "admin" && <Link to="/admin">Admin Panel</Link>}
           </>
         ) : (
           <Link to="/">Login</Link>
         )}
+      </nav>
+
+      <div className="header-right">
+        {user ? (
+          <>
+            <span className="username">👤 {user.username}</span>
+            <button className="logout" onClick={logout}>
+              Logout
+            </button>
+          </>
+        ) : (
+          <span>Welcome, Guest</span>
+        )}
       </div>
-      {lastUpdated && (
-        <div className="last-updated">
-          <small>Last updated: {new Date(lastUpdated).toLocaleString()}</small>
-        </div>
-      )}
     </header>
   );
 };
