@@ -1,0 +1,19 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background: #fafafa;
+}
+header {
+  background: #1a1a1a;
+  color: white;
+  padding: 1rem;
+}
+header a {
+  color: white;
+  margin-right: 1rem;
+  text-decoration: none;
+}
+button {
+  cursor: pointer;
+}
