@@ -11,6 +11,7 @@ const adminUserRoutes = require('./routes/adminUsers');
 
 const { fetchAndStoreData } = require('./services/saveData');
 const { UpdateEventNumForLocations } = require('./services/getEventNum');
+const { UpdateLocationArea } = require('./services/updateLocationArea');
 
 const app = express();
 
@@ -76,6 +77,13 @@ db.connection.once('open', async () => {
     console.log('EventNum updated for all locations.');
   } catch (err) {
     console.error('Failed to update event numbers:', err);
+  }
+
+  try {
+    await UpdateLocationArea();
+    console.log('Location Areas updated for all locations.');
+  } catch (err) {
+    console.error('Failed to update location areas:', err);
   }
 });
 
