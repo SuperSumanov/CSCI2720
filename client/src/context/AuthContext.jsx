@@ -1,15 +1,20 @@
-import { createContext, useState, useEffect } from "react";
+import React, { createContext, useState, useEffect } from "react";
 
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null); // { username, role }
-  const [lastUpdated, setLastUpdated] = useState(null);
+  const [user, setUser] = useState(null);
 
-  const login = (userData) => {
-    setUser(userData);
-    setLastUpdated(new Date().toISOString());
-    localStorage.setItem("user", JSON.stringify(userData));
+  // restore login state
+  useEffect(() => {
+    const savedUser = localStorage.getItem("user");
+    if (savedUser) setUser(JSON.parse(savedUser));
+  }, []);
+
+  const login = (username, role) => {
+    const newUser = { username, role };
+    setUser(newUser);
+    localStorage.setItem("user", JSON.stringify(newUser));
   };
 
   const logout = () => {
@@ -17,13 +22,8 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem("user");
   };
 
-  useEffect(() => {
-    const savedUser = localStorage.getItem("user");
-    if (savedUser) setUser(JSON.parse(savedUser));
-  }, []);
-
   return (
-    <AuthContext.Provider value={{ user, login, logout, lastUpdated }}>
+    <AuthContext.Provider value={{ user, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
