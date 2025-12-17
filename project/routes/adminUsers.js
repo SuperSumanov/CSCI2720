@@ -5,6 +5,15 @@ const { requireAuth, requireAdmin } = require('../middleware/auth');
 const router = express.Router();
 router.use(requireAuth, requireAdmin);
 
+router.get('/', async (req, res) => {
+  try {
+    const allUsers = await User.find({});
+    return res.json(allUsers);
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 router.post('/', async (req, res) => {
   try {
     const { username, password, role } = req.body;
