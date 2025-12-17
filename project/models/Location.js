@@ -5,7 +5,7 @@ const LocationSchema = mongoose.Schema({
   name: String,
   latitude: Number,
   longitude: Number,
-  area: Number,
+  area: String,
   eventNum: Number
 });
 
