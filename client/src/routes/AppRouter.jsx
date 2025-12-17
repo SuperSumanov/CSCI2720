@@ -9,6 +9,7 @@ import AdminLocationsPage from "../pages/AdminLocationsPage";
 import ProtectedRoute from "../components/ProtectedRoute";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
+import MapPage from './pages/MapPage';
 
 const AppRouter = () => (
   <BrowserRouter>
@@ -65,6 +66,9 @@ const AppRouter = () => (
           </ProtectedRoute>
         }
       />
+      <Route path="/map" element={<MapPage />} />
+      <Route path="/location/:locationId" element={<MapPage />} />
+      
     </Routes>
     <Footer />
   </BrowserRouter>
