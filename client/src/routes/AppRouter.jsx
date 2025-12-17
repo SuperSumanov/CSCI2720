@@ -9,7 +9,7 @@ import AdminLocationsPage from "../pages/AdminLocationsPage";
 import ProtectedRoute from "../components/ProtectedRoute";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import MapPage from './pages/MapPage';
+import MapPage from '../pages/MapPage';
 
 const AppRouter = () => (
   <BrowserRouter>
