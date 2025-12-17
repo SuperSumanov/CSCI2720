@@ -6,6 +6,7 @@ const Event = require('./models/Event');
 const Location = require('./models/Location');
 
 const authRoutes = require('./routes/auth');
+const twoFactorRoutes = require('./routes/twoFactor');
 const adminEventRoutes = require('./routes/adminEvents');
 const adminUserRoutes = require('./routes/adminUsers');
 const userFavoriteRoutes = require('./routes/userFavorite');
@@ -39,6 +40,7 @@ app.use((req, res, next) => {
 // Routes
 app.use('/login', authRoutes);
 app.use('/logout', authRoutes);
+app.use('/2fa', twoFactorRoutes);
 app.use('/admin/events', adminEventRoutes);
 app.use('/admin/users', adminUserRoutes);
 app.use('/favorite', userFavoriteRoutes);

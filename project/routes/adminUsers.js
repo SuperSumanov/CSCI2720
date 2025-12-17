@@ -58,4 +58,28 @@ router.delete('/:username', async (req, res) => {
   }
 });
 
+// Reset 2FA
+router.post('/:username/reset-2fa', async (req, res) => {
+  try {
+    const user = await User.findOne({ username: req.params.username });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    if (user.role === 'admin') {
+      return res.status(403).json({ error: 'Cannot reset 2FA for admin users' });
+    }
+
+    user.twoFactorEnabled = false;
+    user.twoFactorSecret = null;
+    await user.save();
+
+    res.json({ 
+      message: '2FA reset successfully for user',
+      username: user.username
+    });
+  } catch (err) {
+    console.error('Reset 2FA error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 module.exports = router;
