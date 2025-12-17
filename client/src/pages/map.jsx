@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { HashRouter as Router, Routes, Route, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -11,6 +11,89 @@ L.Icon.Default.mergeOptions({
   iconUrl: require('leaflet/dist/images/marker-icon.png'),
   shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
 });
+
+// 内联样式
+const mapStyles = {
+  container: {
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100vh',
+  },
+  header: {
+    background: '#2c3e50',
+    color: 'white',
+    padding: '10px 20px',
+  },
+  headerTitle: {
+    fontSize: '20px',
+    margin: 0,
+  },
+  viewContainer: {
+    display: 'flex',
+    flex: 1,
+    height: 'calc(100vh - 60px)',
+  },
+  sidebar: {
+    width: '300px',
+    background: '#f5f5f5',
+    borderRight: '1px solid #ddd',
+    overflowY: 'auto',
+    padding: '10px',
+  },
+  mapContainer: {
+    flex: 1,
+  },
+  locationItem: {
+    border: '1px solid #ddd',
+    borderRadius: '4px',
+    padding: '10px',
+    marginBottom: '10px',
+    background: 'white',
+    cursor: 'pointer',
+  },
+  locationItemHover: {
+    background: '#f0f0f0',
+  },
+  locationName: {
+    fontWeight: 'bold',
+    color: '#2c3e50',
+  },
+  locationDetails: {
+    fontSize: '12px',
+    color: '#666',
+    marginTop: '5px',
+  },
+  locationLink: {
+    display: 'inline-block',
+    marginTop: '5px',
+    color: '#3498db',
+    textDecoration: 'none',
+    fontSize: '12px',
+  },
+  backButton: {
+    background: '#2c3e50',
+    color: 'white',
+    border: 'none',
+    padding: '10px 15px',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    marginBottom: '20px',
+  },
+  detailView: {
+    padding: '20px',
+    overflowY: 'auto',
+    height: 'calc(100vh - 60px)',
+  },
+  markerPopup: {
+    minWidth: '200px',
+  },
+  popupLink: {
+    display: 'block',
+    marginTop: '10px',
+    color: '#3498db',
+    textDecoration: 'none',
+  },
+};
 
 // 模拟数据
 const mockLocations = [
@@ -26,186 +109,24 @@ const mockLocations = [
   { id: '36310566', name: 'Tai Po Civic Centre', latitude: 22.4481, longitude: 114.1669, area: 'Sha Tin District', eventNum: 4 }
 ];
 
-// 内联样式组件
-const Styles = () => (
-  <style>
-    {`
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-      
-      body {
-        font-family: Arial, sans-serif;
-        height: 100vh;
-        overflow: hidden;
-      }
-      
-      .app-container {
-        display: flex;
-        flex-direction: column;
-        height: 100vh;
-      }
-      
-      header {
-        background: #2c3e50;
-        color: white;
-        padding: 10px 20px;
-      }
-      
-      h1 {
-        font-size: 20px;
-      }
-      
-      .container {
-        display: flex;
-        flex: 1;
-        height: calc(100vh - 60px);
-      }
-      
-      #sidebar {
-        width: 300px;
-        background: #f5f5f5;
-        border-right: 1px solid #ddd;
-        overflow-y: auto;
-        padding: 10px;
-      }
-      
-      #map {
-        flex: 1;
-      }
-      
-      .location-item {
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        padding: 10px;
-        margin-bottom: 10px;
-        background: white;
-        cursor: pointer;
-      }
-      
-      .location-item:hover {
-        background: #f0f0f0;
-      }
-      
-      .location-name {
-        font-weight: bold;
-        color: #2c3e50;
-      }
-      
-      .location-details {
-        font-size: 12px;
-        color: #666;
-        margin-top: 5px;
-      }
-      
-      .location-link {
-        display: inline-block;
-        margin-top: 5px;
-        color: #3498db;
-        text-decoration: none;
-        font-size: 12px;
-      }
-      
-      .location-link:hover {
-        text-decoration: underline;
-      }
-      
-      .back-btn {
-        background: #2c3e50;
-        color: white;
-        border: none;
-        padding: 10px 15px;
-        border-radius: 4px;
-        cursor: pointer;
-        margin-bottom: 20px;
-      }
-      
-      .marker-popup .leaflet-popup-content {
-        min-width: 200px;
-      }
-      
-      .popup-link {
-        display: block;
-        margin-top: 10px;
-        color: #3498db;
-        text-decoration: none;
-      }
-      
-      .popup-link:hover {
-        text-decoration: underline;
-      }
-      
-      /* 路由相关的样式 */
-      .view {
-        display: none;
-        width: 100%;
-        height: 100%;
-      }
-      
-      .view.active {
-        display: block;
-      }
-      
-      #map-view.active {
-        display: flex;
-      }
-      
-      #detail-view {
-        padding: 20px;
-        overflow-y: auto;
-        height: calc(100vh - 60px);
-      }
-      
-      /* Leaflet 地图容器样式 */
-      .leaflet-container {
-        height: 100%;
-        width: 100%;
-      }
-    `}
-  </style>
-);
-
-function App() {
-  return (
-    <>
-      <Styles />
-      <Router>
-        <div className="app-container">
-          <Header />
-          <Routes>
-            <Route path="/" element={<MapView />} />
-            <Route path="/location/:id" element={<LocationDetail />} />
-          </Routes>
-        </div>
-      </Router>
-    </>
-  );
-}
-
-function Header() {
-  return (
-    <header>
-      <h1>Cultural Events - SPA Map View</h1>
-      <div>Single Page Application with browser history support</div>
-    </header>
-  );
-}
-
-function MapView() {
+// 地图页面组件
+const MapPage = () => {
+  const [viewMode, setViewMode] = useState('map'); // 'map' 或 'detail'
+  const [selectedLocation, setSelectedLocation] = useState(null);
   const [locations, setLocations] = useState(mockLocations);
-  const [map, setMap] = useState(null);
+  const [mapInstance, setMapInstance] = useState(null);
   const mapRef = useRef(null);
+  const navigate = useNavigate();
+  const params = useParams();
 
   // 初始化地图
   useEffect(() => {
     if (mapRef.current) {
-      setMap(mapRef.current);
+      setMapInstance(mapRef.current);
     }
   }, []);
 
-  // 加载数据
+  // 加载位置数据
   useEffect(() => {
     const loadLocations = async () => {
       try {
@@ -220,170 +141,158 @@ function MapView() {
     loadLocations();
   }, []);
 
-  // 聚焦到特定位置
-  const focusOnLocation = (lat, lng) => {
-    if (map) {
-      map.flyTo([lat, lng], 15);
+  // 处理路由参数
+  useEffect(() => {
+    if (params.locationId) {
+      showLocationDetail(params.locationId);
+    } else {
+      showMapView();
+    }
+  }, [params.locationId]);
+
+  // 显示地图视图
+  const showMapView = () => {
+    setViewMode('map');
+    setSelectedLocation(null);
+    
+    // 确保地图正确显示
+    if (mapInstance) {
+      setTimeout(() => {
+        mapInstance.invalidateSize();
+      }, 100);
     }
   };
 
-  return (
-    <div id="map-view" className="view active">
-      <div className="container">
-        <Sidebar 
-          locations={locations} 
-          onLocationClick={focusOnLocation}
-        />
-        <div id="map">
-          <MapContainer
-            center={[22.3193, 114.1694]}
-            zoom={12}
-            style={{ height: '100%', width: '100%' }}
-            whenCreated={setMap}
-            ref={mapRef}
-          >
-            <TileLayer
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution='&copy; OpenStreetMap contributors'
-              maxZoom={18}
-            />
-            {locations.map(location => (
-              <Marker
-                key={location.id}
-                position={[location.latitude, location.longitude]}
-              >
-                <Popup className="marker-popup">
-                  <div>
-                    <strong>{location.name}</strong><br />
-                    Events: {location.eventNum || 0}<br />
-                    Area: {location.area || 'N/A'}<br />
-                    <a href={`#/location/${location.id}`} className="popup-link">
-                      View Location Details
-                    </a>
-                  </div>
-                </Popup>
-              </Marker>
-            ))}
-          </MapContainer>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Sidebar({ locations, onLocationClick }) {
-  const navigate = useNavigate();
-
-  const handleLocationLinkClick = (e, id) => {
-    e.preventDefault();
-    e.stopPropagation();
-    navigate(`/location/${id}`);
+  // 显示位置详情
+  const showLocationDetail = (locationId) => {
+    const location = locations.find(loc => loc.id === locationId);
+    if (location) {
+      setSelectedLocation(location);
+      setViewMode('detail');
+    } else {
+      // 如果找不到位置，返回地图视图
+      showMapView();
+    }
   };
 
-  return (
-    <div id="sidebar">
-      <h3>Locations List</h3>
-      <div id="locations-list">
-        {locations.map(location => (
-          <div 
-            key={location.id} 
-            className="location-item"
-            onClick={() => onLocationClick(location.latitude, location.longitude)}
-          >
-            <div className="location-name">{location.name}</div>
-            <div className="location-details">
-              Events: {location.eventNum || 0} | 
-              Area: {location.area || 'N/A'}
-            </div>
-            <a 
-              href={`#/location/${location.id}`}
-              className="location-link"
-              onClick={(e) => handleLocationLinkClick(e, location.id)}
-            >
-              View Details
-            </a>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+  // 聚焦到特定位置
+  const focusOnLocation = (lat, lng) => {
+    if (mapInstance) {
+      mapInstance.flyTo([lat, lng], 15);
+    }
+  };
 
-function LocationDetail() {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const [location, setLocation] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  // 处理位置链接点击
+  const handleLocationLinkClick = (e, locationId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    navigate(`/location/${locationId}`);
+  };
 
-  useEffect(() => {
-    const loadLocationDetails = async () => {
-      try {
-        setLoading(true);
-        // 尝试从API获取数据
-        const response = await fetch(`/api/location/${id}`);
-        if (response.ok) {
-          const data = await response.json();
-          setLocation(data.location);
-        } else {
-          // 如果API失败，使用模拟数据
-          const foundLocation = mockLocations.find(loc => loc.id === id);
-          if (foundLocation) {
-            setLocation(foundLocation);
-          } else {
-            throw new Error('Location not found');
-          }
-        }
-      } catch (error) {
-        console.error('Error loading location details:', error);
-        setError(error.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadLocationDetails();
-  }, [id]);
-
+  // 处理返回按钮
   const handleBack = () => {
     navigate(-1);
   };
 
-  if (loading) {
-    return (
-      <div id="detail-view" className="view active">
-        <button className="back-btn" onClick={handleBack}>← Back to Map</button>
-        <div id="detail-content">
-          <p>Loading location details...</p>
+  // 渲染地图视图
+  const renderMapView = () => (
+    <div style={mapStyles.viewContainer}>
+      <div style={mapStyles.sidebar}>
+        <h3>Locations List</h3>
+        <div id="locations-list">
+          {locations.map(location => (
+            <div 
+              key={location.id} 
+              style={mapStyles.locationItem}
+              onMouseEnter={(e) => e.currentTarget.style.background = mapStyles.locationItemHover.background}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
+              onClick={() => focusOnLocation(location.latitude, location.longitude)}
+            >
+              <div style={mapStyles.locationName}>{location.name}</div>
+              <div style={mapStyles.locationDetails}>
+                Events: {location.eventNum || 0} | 
+                Area: {location.area || 'N/A'}
+              </div>
+              <a 
+                href={`#/location/${location.id}`}
+                style={mapStyles.locationLink}
+                onClick={(e) => handleLocationLinkClick(e, location.id)}
+              >
+                View Details
+              </a>
+            </div>
+          ))}
         </div>
       </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div id="detail-view" className="view active">
-        <button className="back-btn" onClick={handleBack}>← Back to Map</button>
-        <div id="detail-content">
-          <h2>Error</h2>
-          <p>Failed to load location details: {error}</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div id="detail-view" className="view active">
-      <button className="back-btn" onClick={handleBack}>← Back to Map</button>
-      <div id="detail-content">
-        <h2>{location.name}</h2>
-        <p><strong>ID:</strong> {location.id}</p>
-        <p><strong>Coordinates:</strong> {location.latitude?.toFixed(4)}, {location.longitude?.toFixed(4)}</p>
-        <p><strong>Area:</strong> {location.area || 'N/A'} </p>
-        <p><strong>Number of Events:</strong> {location.eventNum || 0}</p>
+      <div style={mapStyles.mapContainer}>
+        <MapContainer
+          center={[22.3193, 114.1694]}
+          zoom={12}
+          style={{ height: '100%', width: '100%' }}
+          whenCreated={setMapInstance}
+          ref={mapRef}
+        >
+          <TileLayer
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; OpenStreetMap contributors'
+            maxZoom={18}
+          />
+          {locations.map(location => (
+            <Marker
+              key={location.id}
+              position={[location.latitude, location.longitude]}
+            >
+              <Popup style={mapStyles.markerPopup}>
+                <div>
+                  <strong>{location.name}</strong><br />
+                  Events: {location.eventNum || 0}<br />
+                  Area: {location.area || 'N/A'}<br />
+                  <a 
+                    href={`#/location/${location.id}`}
+                    style={mapStyles.popupLink}
+                    onClick={(e) => handleLocationLinkClick(e, location.id)}
+                  >
+                    View Location Details
+                  </a>
+                </div>
+              </Popup>
+            </Marker>
+          ))}
+        </MapContainer>
       </div>
     </div>
   );
-}
 
-export default App;
+  // 渲染详情视图
+  const renderDetailView = () => {
+    if (!selectedLocation) return null;
+    
+    return (
+      <div style={mapStyles.detailView}>
+        <button style={mapStyles.backButton} onClick={handleBack}>
+          ← Back to Map
+        </button>
+        <div id="detail-content">
+          <h2>{selectedLocation.name}</h2>
+          <p><strong>ID:</strong> {selectedLocation.id}</p>
+          <p><strong>Coordinates:</strong> {selectedLocation.latitude?.toFixed(4)}, {selectedLocation.longitude?.toFixed(4)}</p>
+          <p><strong>Area:</strong> {selectedLocation.area || 'N/A'} </p>
+          <p><strong>Number of Events:</strong> {selectedLocation.eventNum || 0}</p>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div style={mapStyles.container}>
+      <header style={mapStyles.header}>
+        <h1 style={mapStyles.headerTitle}>Cultural Events - SPA Map View</h1>
+        <div>Single Page Application with browser history support</div>
+      </header>
+      
+      {viewMode === 'map' ? renderMapView() : renderDetailView()}
+    </div>
+  );
+};
+
+export default MapPage;
