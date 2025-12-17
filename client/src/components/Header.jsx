@@ -17,6 +17,7 @@ const Header = () => {
           <>
             <Link to="/locations">Home</Link>
             <Link to="/favourites">Favourites</Link>
+            <Link to="/map">Map</Link>
             {user.role === "admin" && <Link to="/admin">Admin Panel</Link>}
           </>
         ) : (

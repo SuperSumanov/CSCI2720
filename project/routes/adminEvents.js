@@ -3,7 +3,7 @@ const Event = require('../models/Event');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
-router.use(requireAuth, requireAdmin);
+// router.use(requireAuth, requireAdmin);
 
 router.get('/', async (req, res) => {
   try {

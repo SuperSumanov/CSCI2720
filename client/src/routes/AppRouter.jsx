@@ -5,7 +5,7 @@ import LocationDetailPage from "../pages/LocationDetailPage";
 import FavouritesPage from "../pages/FavouritesPage";
 import AdminDashboard from "../pages/AdminDashboard";
 import AdminUsersPage from "../pages/AdminUsersPage";
-import AdminLocationsPage from "../pages/AdminLocationsPage";
+import AdminEventsPage from "../pages/AdminEventsPage";
 import ProtectedRoute from "../components/ProtectedRoute";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
@@ -59,10 +59,10 @@ const AppRouter = () => (
         }
       />
       <Route
-        path="/admin/locations"
+        path="/admin/events"
         element={
           <ProtectedRoute adminOnly>
-            <AdminLocationsPage />
+            <AdminEventsPage />
           </ProtectedRoute>
         }
       />

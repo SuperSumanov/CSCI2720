@@ -6,7 +6,7 @@ const AdminDashboard = () => (
     <h2>Admin Dashboard</h2>
     <ul>
       <li><Link to="/admin/users">Manage Users</Link></li>
-      <li><Link to="/admin/locations">Manage Locations</Link></li>
+      <li><Link to="/admin/events">Manage Locations</Link></li>
     </ul>
   </div>
 );
