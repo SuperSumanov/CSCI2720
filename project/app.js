@@ -8,6 +8,8 @@ const Location = require('./models/Location');
 const authRoutes = require('./routes/auth');
 const adminEventRoutes = require('./routes/adminEvents');
 const adminUserRoutes = require('./routes/adminUsers');
+const userFavoriteRoutes = require('./routes/userFavorite');
+const userCommentRoutes = require('./routes/userComments');
 
 const { fetchAndStoreData } = require('./services/saveData');
 const { UpdateEventNumForLocations } = require('./services/getEventNum');
@@ -35,6 +37,8 @@ app.use('/login', authRoutes);
 app.use('/logout', authRoutes);
 app.use('/admin/events', adminEventRoutes);
 app.use('/admin/users', adminUserRoutes);
+app.use('/favorite', userFavoriteRoutes);
+app.use('/comment', userCommentRoutes);
 
 // Default route
 app.use((req, res) => {

@@ -9,4 +9,10 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-module.exports = { requireAuth, requireAdmin };
+function requireUser(req, res, next) {
+  if (!req.user || req.user.role !== 'user')
+    return res.status(403).json({ error: 'Forbidden: user only' });
+  next();
+}
+
+module.exports = { requireAuth, requireAdmin, requireUser };
