@@ -86,3 +86,17 @@
   color: var(--text-secondary);
   font-size: 0.85rem;
 }
+
+.twofa-btn-link {
+  margin-top: 0.75rem;
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.twofa-btn-link:hover {
+  color: #1d4ed8;
+}

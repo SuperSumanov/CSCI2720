@@ -75,21 +75,12 @@ router.post('/enable', requireAuth, async (req, res) => {
     if (!verified) {
       return res.status(401).json({ error: 'Invalid token' });
     }
-
+    
     user.twoFactorEnabled = true;
-    
-    // 如果是管理员，生成新的紧急恢复码
-    const response = { message: '2FA enabled successfully' };
-    if (user.role === 'admin') {
-      const code = crypto.randomBytes(8).toString('hex').toUpperCase();
-      const hashedCode = await bcrypt.hash(code, 10);
-      user.emergencyResetCodes = [hashedCode];
-      response.emergencyResetCode = code;
-    }
-    
     await user.save();
 
-    res.json(response);
+    // 在 enable 阶段不再生成或更新紧急恢复码
+    res.json({ message: '2FA enabled successfully' });
   } catch (err) {
     console.error('2FA enable error:', err);
     res.status(500).json({ error: 'Failed to enable 2FA' });
@@ -155,14 +146,17 @@ router.get('/status', requireAuth, async (req, res) => {
   }
 });
 
-// 使用紧急重置码重置2FA（仅管理员）
-router.post('/reset-with-emergency-code', requireAuth, async (req, res) => {
+// 使用紧急重置码重置管理员自己的 2FA（在未登录状态下）
+// 场景：管理员因为丢失 2FA 设备而无法登录，此时可使用 username + password + emergencyCode 来关闭自己的 2FA
+router.post('/reset-with-emergency-code', async (req, res) => {
   try {
-    const { emergencyCode, password } = req.body;
+    const { username, emergencyCode, password } = req.body;
+    if (!username) return res.status(400).json({ error: 'Username required' });
     if (!emergencyCode) return res.status(400).json({ error: 'Emergency code required' });
     if (!password) return res.status(400).json({ error: 'Password required' });
 
-    const user = await User.findById(req.user._id);
+    // 这里不依赖登录态，而是通过用户名找到对应管理员账号
+    const user = await User.findOne({ username });
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     if (user.role !== 'admin') {

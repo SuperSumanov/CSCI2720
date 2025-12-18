@@ -618,7 +618,7 @@ const AdminUsersPage = () => {
   };
 
   const handleReset2FA = async (username) => {
-    if (!window.confirm(`Are you sure you want to reset 2FA for user "${username}"?`)) return;
+    if (!window.confirm(`Are you sure you want to disable 2FA for user "${username}"?`)) return;
     
     try {
       const res = await fetch(`/admin/users/${username}/reset-2fa`, {
@@ -628,10 +628,10 @@ const AdminUsersPage = () => {
       
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || "Failed to reset 2FA");
+        throw new Error(errorData.error || "Failed to disable 2FA");
       }
       
-      alert(`2FA has been reset for user "${username}"`);
+      alert(`2FA has been disabled for user "${username}"`);
       // 可选：重新获取数据以更新显示
       await fetchUsers();
       
@@ -842,8 +842,8 @@ const AdminUsersPage = () => {
                             whiteSpace: "nowrap"
                           }}
                           onClick={() => handleReset2FA(user.username)}
-                        >
-                          Reset 2FA
+                          >
+                          Disable 2FA
                         </button>
                       )}
                       <button
