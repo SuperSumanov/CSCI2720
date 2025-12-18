@@ -22,27 +22,17 @@ const MapPage = () => {
     const [commentError, setCommentError] = useState('');
     const [processedNavigation, setProcessedNavigation] = useState(false);
     
+    // 新增：filter相关状态
+    const [filteredLocations, setFilteredLocations] = useState([]);
+    const [filterActive, setFilterActive] = useState(false);
+    const [currentFilter, setCurrentFilter] = useState(null);
+    
     const mapRef = useRef(null);
     const mapInstanceRef = useRef(null);
     const markersRef = useRef([]);
 
 
     const API_BASE_URL = 'http://localhost:3000';
-
-    const getThemeStyles = () => {
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    
-    return {
-        headerBg: isDark ? '#0a0a0a' : 'linear-gradient(135deg, #2c3e50, #3498db)',
-        mapBg: isDark ? '#2d3748' : '#f5f5f5',
-        panelBg: isDark ? '#1a202c' : 'white',
-        textColor: isDark ? 'white' : '#222',
-        secondaryText: isDark ? '#a0aec0' : '#666',
-        borderColor: isDark ? '#4a5568' : '#e0e0e0',
-        inputBg: isDark ? '#2d3748' : 'white',
-        buttonBg: isDark ? '#4a5568' : '#f8f9fa',
-    };
-    };
 
     // 保存收藏状态到sessionStorage（可选，用于临时缓存）
     const saveFavoritesToSessionStorage = (favoritesMap) => {
@@ -520,9 +510,17 @@ const MapPage = () => {
         });
         markersRef.current = [];
         
-        const createCustomIcon = (isSelected = false, eventNum = 0, isOffset = false) => {
+        const createCustomIcon = (isSelected = false, eventNum = 0, isOffset = false, isFiltered = false) => {
             const hasEvents = eventNum > 0;
-            const bgColor = isSelected ? '#e74c3c' : hasEvents ? '#2ecc71' : '#3498db';
+            let bgColor;
+            
+            if (isSelected) {
+                bgColor = '#e74c3c';
+            } else if (isFiltered) {
+                bgColor = '#9b59b6'; // 紫色表示过滤后的地点
+            } else {
+                bgColor = hasEvents ? '#2ecc71' : '#3498db';
+            }
             
             const offsetIndicator = isOffset ? '<div style="position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); width: 6px; height: 6px; background: #f39c12; border-radius: 50%;"></div>' : '';
             
@@ -531,8 +529,8 @@ const MapPage = () => {
                 html: `
                     <div style="
                         background: ${bgColor};
-                        width: ${isSelected ? '40px' : '36px'};
-                        height: ${isSelected ? '40px' : '36px'};
+                        width: ${isSelected ? '40px' : isFiltered ? '38px' : '36px'};
+                        height: ${isSelected ? '40px' : isFiltered ? '38px' : '36px'};
                         border-radius: 50%;
                         border: 3px solid white;
                         box-shadow: 0 2px 8px rgba(0,0,0,0.3);
@@ -541,7 +539,7 @@ const MapPage = () => {
                         justify-content: center;
                         color: white;
                         font-weight: bold;
-                        font-size: ${isSelected ? '18px' : '16px'};
+                        font-size: ${isSelected ? '18px' : isFiltered ? '17px' : '16px'};
                         transition: all 0.3s;
                         position: relative;
                     ">
@@ -568,25 +566,45 @@ const MapPage = () => {
                         ${offsetIndicator}
                     </div>
                 `,
-                iconSize: isSelected ? [40, 40] : [36, 36],
-                iconAnchor: isSelected ? [20, 40] : [18, 36]
+                iconSize: isSelected ? [40, 40] : isFiltered ? [38, 38] : [36, 36],
+                iconAnchor: isSelected ? [20, 40] : isFiltered ? [19, 38] : [18, 36]
             });
         };
         
-        const locationsToShow = selectedLocation 
-            ? locations.filter(location => location.id === selectedLocation)
+        // 确定要显示的地点列表
+        const locationsToShow = filterActive && currentFilter && currentFilter.filteredLocationIds
+            ? locations.filter(location => currentFilter.filteredLocationIds.includes(location.id))
             : locations;
         
-        locationsToShow.forEach(location => {
+        // 如果有选中的特定地点，只显示该地点
+        const finalLocationsToShow = selectedLocation
+            ? locationsToShow.filter(location => location.id === selectedLocation)
+            : locationsToShow;
+        
+        // 计算地图中心点
+        if (finalLocationsToShow.length > 0 && mapInstanceRef.current) {
+            const centerLat = finalLocationsToShow.reduce((sum, loc) => sum + loc.displayLatitude, 0) / finalLocationsToShow.length;
+            const centerLng = finalLocationsToShow.reduce((sum, loc) => sum + loc.displayLongitude, 0) / finalLocationsToShow.length;
+            mapInstanceRef.current.setView([centerLat, centerLng], 
+                finalLocationsToShow.length === 1 ? 20 : 
+                finalLocationsToShow.length < 5 ? 16 : 11);
+        }
+        
+        finalLocationsToShow.forEach(location => {
             const isSelected = selectedLocation === location.id;
+            const isFiltered = filterActive && currentFilter && currentFilter.filteredLocationIds 
+                ? currentFilter.filteredLocationIds.includes(location.id)
+                : false;
+            
             const marker = L.marker([location.displayLatitude, location.displayLongitude], {
-                icon: createCustomIcon(isSelected, location.eventNum || 0, location.isOffset)
+                icon: createCustomIcon(isSelected, location.eventNum || 0, location.isOffset, isFiltered)
             })
                 .addTo(mapInstanceRef.current)
                 .bindTooltip(`
                     <div style="font-weight: bold; margin-bottom: 5px;">${location.name}</div>
                     <div style="font-size: 12px; color: #666;">Area: ${location.area || 'Unknown'}</div>
                     ${location.eventNum > 0 ? `<div style="font-size: 12px; color: #27ae60;">Events: ${location.eventNum}</div>` : ''}
+                    ${isFiltered ? `<div style="font-size: 11px; color: #9b59b6;">Filtered Location</div>` : ''}
                     ${location.groupSize > 1 ? `<div style="font-size: 11px; color: #f39c12;">(${location.groupIndex + 1}/${location.groupSize} at this location)</div>` : ''}
                 `, {
                     direction: 'top',
@@ -605,32 +623,58 @@ const MapPage = () => {
 
     // 处理从LocationsPage导航过来的逻辑
     useEffect(() => {
-        if (!processedNavigation && location.state && location.state.selectedLocationId && locations.length > 0) {
-            const locationId = location.state.selectedLocationId;
-            console.log('Processing navigation from LocationsPage, locationId:', locationId);
+        if (!processedNavigation && location.state && (location.state.selectedLocationId || location.state.filterState)) {
             
-            const foundLocation = locations.find(loc => loc.id === locationId);
-            if (foundLocation) {
-                console.log('Found location, opening sidebar...');
-                setSelectedLocation(locationId);
-                setIsCommentsPaneOpen(true);
+            // 处理filter状态
+            if (location.state.filterState) {
+                console.log('Processing filter from LocationsPage:', location.state.filterState);
+                setCurrentFilter(location.state.filterState);
+                setFilterActive(true);
                 
-                // 加载评论和收藏
-                fetchLocationComments(locationId);
-                loadUserFavorites();
-                
-                // 移动地图到该位置
-                if (mapInstanceRef.current) {
-                    const lat = foundLocation.originalLatitude || foundLocation.latitude;
-                    const lng = foundLocation.originalLongitude || foundLocation.longitude;
-                    mapInstanceRef.current.setView([lat, lng], 20);
+                // 如果有特定的地点选择，优先处理
+                if (location.state.selectedLocationId) {
+                    const locationId = location.state.selectedLocationId;
+                    const foundLocation = locations.find(loc => loc.id === locationId);
+                    if (foundLocation) {
+                        console.log('Found specific location, opening sidebar...');
+                        setSelectedLocation(locationId);
+                        setIsCommentsPaneOpen(true);
+                        fetchLocationComments(locationId);
+                        loadUserFavorites();
+                        
+                        if (mapInstanceRef.current) {
+                            const lat = foundLocation.originalLatitude || foundLocation.latitude;
+                            const lng = foundLocation.originalLongitude || foundLocation.longitude;
+                            mapInstanceRef.current.setView([lat, lng], 20);
+                        }
+                    }
                 }
                 
                 // 标记导航已处理
                 setProcessedNavigation(true);
                 
-                // 清除导航状态，避免重复执行
+                // 清除导航状态
                 navigate(location.pathname, { replace: true, state: {} });
+            } else if (location.state.selectedLocationId) {
+                // 原有的处理单个地点的逻辑
+                const locationId = location.state.selectedLocationId;
+                const foundLocation = locations.find(loc => loc.id === locationId);
+                if (foundLocation) {
+                    console.log('Found location, opening sidebar...');
+                    setSelectedLocation(locationId);
+                    setIsCommentsPaneOpen(true);
+                    fetchLocationComments(locationId);
+                    loadUserFavorites();
+                    
+                    if (mapInstanceRef.current) {
+                        const lat = foundLocation.originalLatitude || foundLocation.latitude;
+                        const lng = foundLocation.originalLongitude || foundLocation.longitude;
+                        mapInstanceRef.current.setView([lat, lng], 20);
+                    }
+                    
+                    setProcessedNavigation(true);
+                    navigate(location.pathname, { replace: true, state: {} });
+                }
             }
         }
     }, [location.state, locations, processedNavigation]);
@@ -662,7 +706,7 @@ const MapPage = () => {
         if (locations.length > 0 && mapInstanceRef.current) {
             addMarkersToMap();
         }
-    }, [locations, selectedLocation]);
+    }, [locations, selectedLocation, filterActive, currentFilter]);
 
     const handleMarkerClick = async (locationId) => {
         const location = locations.find(loc => loc.id === locationId);
@@ -703,6 +747,26 @@ const MapPage = () => {
         }
     };
 
+    // 添加清除filter状态的函数
+    const clearFilter = () => {
+        setFilterActive(false);
+        setCurrentFilter(null);
+        setSelectedLocation(null);
+        setIsCommentsPaneOpen(false);
+        
+        // 重置地图视图
+        if (mapInstanceRef.current && locations.length > 0) {
+            const centerLat = locations.reduce((sum, loc) => sum + loc.displayLatitude, 0) / locations.length;
+            const centerLng = locations.reduce((sum, loc) => sum + loc.displayLongitude, 0) / locations.length;
+            mapInstanceRef.current.setView([centerLat, centerLng], 11);
+        }
+        
+        // 重新添加所有标记
+        if (mapInstanceRef.current) {
+            addMarkersToMap();
+        }
+    };
+
     const refreshData = () => {
         fetchLocations();
         // 刷新时也重新加载收藏
@@ -720,7 +784,7 @@ const MapPage = () => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 height: '100vh',
-                background: getThemeStyles().headerBg,
+                background: 'linear-gradient(135deg, #2c3e50, #3498db)',
                 color: 'white'
             }}>
                 <h1>Authentication Required</h1>
@@ -753,6 +817,7 @@ const MapPage = () => {
             padding: 0,
             fontFamily: 'Arial, sans-serif'
         }}>
+
             {/* Main content area */}
             <main style={{ 
                 flex: 1, 
@@ -840,6 +905,59 @@ const MapPage = () => {
                         </div>
                         <div style={{ fontSize: '0.9rem' }}>
                             {error}
+                        </div>
+                    </div>
+                )}
+
+                {/* Filter状态显示 */}
+                {filterActive && currentFilter && (
+                    <div style={{
+                        position: 'absolute',
+                        top: '20px',
+                        left: '20px',
+                        background: 'rgba(155, 89, 182, 0.95)',
+                        color: 'white',
+                        padding: '1rem 2rem',
+                        borderRadius: '8px',
+                        zIndex: 1001,
+                        maxWidth: '300px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                        backdropFilter: 'blur(5px)'
+                    }}>
+                        <div style={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between', 
+                            alignItems: 'center',
+                            marginBottom: '0.5rem'
+                        }}>
+                            <strong>📍 Filter Active</strong>
+                            <button
+                                onClick={clearFilter}
+                                style={{
+                                    background: 'rgba(255,255,255,0.3)',
+                                    border: 'none',
+                                    color: 'white',
+                                    width: '24px',
+                                    height: '24px',
+                                    borderRadius: '50%',
+                                    cursor: 'pointer',
+                                    fontSize: '0.9rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                                title="Clear filter"
+                            >
+                                ×
+                            </button>
+                        </div>
+                        <div style={{ fontSize: '0.85rem', lineHeight: '1.4' }}>
+                            <div>Showing {currentFilter.filteredLocationIds?.length || 0} filtered locations</div>
+                            {currentFilter.search && <div>Search: "{currentFilter.search}"</div>}
+                            {currentFilter.maxDistance && <div>Max distance: {currentFilter.maxDistance} km</div>}
+                            {currentFilter.selectedArea && currentFilter.selectedArea !== 'All' && 
+                                <div>Area: {currentFilter.selectedArea}</div>
+                            }
                         </div>
                     </div>
                 )}
