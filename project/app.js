@@ -12,6 +12,7 @@ const adminUserRoutes = require('./routes/adminUsers');
 const userFavoriteRoutes = require('./routes/userFavorite');
 const userCommentRoutes = require('./routes/userComments');
 const locationroutes = require('./routes/locations');
+const eventRoutes = require('./routes/events');
 
 const { fetchAndStoreData } = require('./services/saveData');
 const { UpdateEventNumForLocations } = require('./services/getEventNum');
@@ -53,6 +54,7 @@ app.use('/admin/users', adminUserRoutes);
 app.use('/favorite', userFavoriteRoutes);
 app.use('/comment', userCommentRoutes);
 app.use('/locations', locationroutes);
+app.use('/events', eventRoutes);
 
 // Default route
 app.use((req, res) => {

@@ -10,6 +10,7 @@ import ProtectedRoute from "../components/ProtectedRoute";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import MapPage from '../pages/MapPage';
+import EventsPage from "../pages/EventsPage";
 
 const AppRouter = () => (
   <BrowserRouter>
@@ -21,6 +22,14 @@ const AppRouter = () => (
         element={
           <ProtectedRoute>
             <LocationsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/events"
+        element={
+          <ProtectedRoute>
+            <EventsPage />
           </ProtectedRoute>
         }
       />

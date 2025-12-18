@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import "../styles/locations.css";
 
 const LocationsPage = () => {
-  const [allLocations, setAllLocations] = useState([]); // ← dynamic data
+  const [allLocations, setAllLocations] = useState([]);
   const [sortKey, setSortKey] = useState("name");
   const [sortOrder, setSortOrder] = useState("asc");
   const [favorites, setFavorites] = useState([]);
@@ -10,6 +10,30 @@ const LocationsPage = () => {
   const [maxDistance, setMaxDistance] = useState(20);
   const [selectedArea, setSelectedArea] = useState("All");
   const [loading, setLoading] = useState(true);
+  const [loadingFavorites, setLoadingFavorites] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // === Check user authentication status ===
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const res = await fetch("http://localhost:3000/login/me", {
+          credentials: 'include',
+        });
+        
+        if (res.ok) {
+          setIsLoggedIn(true);
+        } else {
+          setIsLoggedIn(false);
+        }
+      } catch (err) {
+        console.error("Error checking auth:", err);
+        setIsLoggedIn(false);
+      }
+    };
+
+    checkAuth();
+  }, []);
 
   // === Fetch data from backend on mount ===
   useEffect(() => {
@@ -19,6 +43,7 @@ const LocationsPage = () => {
           headers: {
             "Content-Type": "application/json",
           },
+          credentials: 'include',
         });
 
         if (!res.ok) {
@@ -27,13 +52,11 @@ const LocationsPage = () => {
 
         const data = await res.json();
 
-        // Adapt backend fields (id, name, latitude, longitude, area)
-        // Compute a pseudo distance & events count if not provided, for display
         const enriched = data.map((loc, index) => ({
           id: loc.id || index + 1,
           name: loc.name,
-          distance: Math.random() * 20, // demo distance; backend didn't define this
-          events: Math.floor(Math.random() * 10) + 1, // demo event count
+          distance: Math.random() * 20,
+          events: Math.floor(Math.random() * 10) + 1,
           area: loc.area || "Unknown",
         }));
 
@@ -48,20 +71,102 @@ const LocationsPage = () => {
     fetchLocations();
   }, []);
 
-  // === Favorites persist in localStorage ===
+  // === Fetch user's favorites from backend ===
   useEffect(() => {
-    const saved = localStorage.getItem("favorites");
-    if (saved) setFavorites(JSON.parse(saved));
-  }, []);
+    const fetchUserFavorites = async () => {
+      if (!isLoggedIn) {
+        setFavorites([]);
+        setLoadingFavorites(false);
+        return;
+      }
 
-  useEffect(() => {
-    localStorage.setItem("favorites", JSON.stringify(favorites));
-  }, [favorites]);
+      try {
+        const res = await fetch("http://localhost:3000/favorite/my-all", {
+          credentials: 'include',
+        });
 
-  const toggleFavorite = (id) => {
-    setFavorites((prev) =>
-      prev.includes(id) ? prev.filter((fid) => fid !== id) : [...prev, id]
-    );
+        if (res.status === 401 || res.status === 403) {
+          console.warn("User not authenticated for favorites");
+          setFavorites([]);
+          return;
+        }
+
+        if (!res.ok) {
+          throw new Error(`Failed to fetch favorites: ${res.status}`);
+        }
+
+        const data = await res.json();
+        const favoriteIds = data.map(fav => fav.locationId);
+        setFavorites(favoriteIds);
+      } catch (err) {
+        console.error("Error fetching favorites:", err);
+        setFavorites([]);
+      } finally {
+        setLoadingFavorites(false);
+      }
+    };
+
+    if (isLoggedIn) {
+      fetchUserFavorites();
+    } else {
+      setLoadingFavorites(false);
+    }
+  }, [isLoggedIn]);
+
+  // Toggle favorite - calls backend API
+  const toggleFavorite = async (locationId) => {
+    if (!isLoggedIn) {
+      alert("Please login to add favorites");
+      return;
+    }
+
+    const isCurrentlyFavorite = favorites.includes(locationId);
+    
+    try {
+      if (isCurrentlyFavorite) {
+        // Remove from favorites
+        const res = await fetch(`http://localhost:3000/favorite/${locationId}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        });
+
+        if (res.status === 401 || res.status === 403) {
+          alert("Please login to manage favorites");
+          return;
+        }
+
+        if (!res.ok) {
+          throw new Error(`Failed to remove favorite: ${res.status}`);
+        }
+
+        setFavorites(prev => prev.filter(id => id !== locationId));
+      } else {
+        // Add to favorites
+        const res = await fetch(`http://localhost:3000/favorite/${locationId}`, {
+          method: 'GET',
+          credentials: 'include',
+        });
+
+        if (res.status === 401 || res.status === 403) {
+          alert("Please login to manage favorites");
+          return;
+        }
+
+        if (res.status === 409) {
+          alert("This location is already in your favorites");
+          return;
+        }
+
+        if (!res.ok) {
+          throw new Error(`Failed to add favorite: ${res.status}`);
+        }
+
+        setFavorites(prev => [...prev, locationId]);
+      }
+    } catch (err) {
+      console.error("Error toggling favorite:", err);
+      alert("Failed to update favorite. Please try again.");
+    }
   };
 
   const handleSort = (key) => {
@@ -102,7 +207,7 @@ const LocationsPage = () => {
     return (
       <main className="locations-page">
         <h2>Programme Locations</h2>
-        <p>Loading locations from server...</p>
+        <p>Loading...</p>
       </main>
     );
   }
@@ -191,10 +296,12 @@ const LocationsPage = () => {
                     <button
                       className={`fav-btn ${
                         favorites.includes(loc.id) ? "active" : ""
-                      }`}
+                      } ${!isLoggedIn ? "disabled" : ""}`}
                       onClick={() => toggleFavorite(loc.id)}
+                      disabled={loadingFavorites || !isLoggedIn}
+                      title={!isLoggedIn ? "Login to add favorites" : ""}
                     >
-                      {favorites.includes(loc.id) ? "⭐" : "☆"}
+                      {loadingFavorites ? "..." : (favorites.includes(loc.id) ? "⭐" : "☆")}
                     </button>
                   </td>
                 </tr>
