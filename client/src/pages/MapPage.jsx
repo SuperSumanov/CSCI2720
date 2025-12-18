@@ -633,6 +633,15 @@ const MapPage = () => {
         return () => window.removeEventListener('storage', handleStorageChange);
     }, []);
 
+    // 监听用户登录状态变化
+    useEffect(() => {
+        // 如果用户未登录，重定向到登录页面
+        if (!user) {
+            console.log('User not authenticated, redirecting to login...');
+            navigate('/');
+        }
+    }, [user, navigate]);
+
     // Update map when location data changes
     useEffect(() => {
         if (locations.length > 0 && mapInstanceRef.current) {
@@ -792,6 +801,39 @@ const MapPage = () => {
         handleNavigationFromLocationsPage();
       }, [location.state]); // 只依赖 location.state
 
+    // 如果用户未登录，显示重定向提示
+    if (!user) {
+        return (
+            <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '100vh',
+                background: 'linear-gradient(135deg, #2c3e50, #3498db)',
+                color: 'white'
+            }}>
+                <h1>Authentication Required</h1>
+                <p>Please login to access the map.</p>
+                <button
+                    onClick={() => navigate('/')}
+                    style={{
+                        background: 'rgba(255,255,255,0.2)',
+                        border: 'none',
+                        color: 'white',
+                        padding: '0.75rem 1.5rem',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '1rem',
+                        marginTop: '1rem'
+                    }}
+                >
+                    Go to Login
+                </button>
+            </div>
+        );
+    }
+
     return (
         <div style={{
             display: 'flex',
@@ -815,7 +857,16 @@ const MapPage = () => {
                     Cultural Events Map
                 </h1>
                 <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-
+                    {/* 显示当前用户 */}
+                    <div style={{ 
+                        fontSize: '0.9rem', 
+                        background: 'rgba(255,255,255,0.2)',
+                        padding: '0.25rem 0.75rem',
+                        borderRadius: '4px'
+                    }}>
+                        Welcome, {user.username}
+                    </div>
+                    
                     <button
                         onClick={refreshData}
                         style={{
