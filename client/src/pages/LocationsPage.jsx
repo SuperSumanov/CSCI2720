@@ -14,6 +14,7 @@ const LocationsPage = () => {
   const [loading, setLoading] = useState(true);
   const [loadingFavorites, setLoadingFavorites] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loginTime, setLoginTime] = useState(null);
 
   // 新增：处理地点点击事件
   const handleLocationClick = (locationId, locationName) => {
@@ -36,7 +37,9 @@ const LocationsPage = () => {
         });
         
         if (res.ok) {
+          const data = await res.json();
           setIsLoggedIn(true);
+          setLoginTime(data.login_time);
         } else {
           setIsLoggedIn(false);
         }
@@ -340,6 +343,9 @@ const LocationsPage = () => {
           </tbody>
         </table>
       </div>
+      <p style={{ marginTop: "16px", fontStyle: "italic", color: "#555" }}>
+        Last updated time: {new Date(loginTime).toLocaleString()}
+      </p>
     </main>
   );
 };

@@ -25,6 +25,7 @@ router.get('/me', (req, res) => {
     _id: req.session.user._id,
     username: req.session.user.username,
     role: req.session.user.role,
+    login_time: req.session.user.login_time,
     // 添加其他需要的用户信息
   });
 });
