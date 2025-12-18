@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { useNavigate } from 'react-router-dom'; // 新增：导入 useNavigate
 import "../styles/locations.css";
 
 const LocationsPage = () => {
+  const navigate = useNavigate(); // 新增：使用 useNavigate 钩子
   const [allLocations, setAllLocations] = useState([]);
   const [sortKey, setSortKey] = useState("name");
   const [sortOrder, setSortOrder] = useState("asc");
@@ -12,6 +14,18 @@ const LocationsPage = () => {
   const [loading, setLoading] = useState(true);
   const [loadingFavorites, setLoadingFavorites] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // 新增：处理地点点击事件
+  const handleLocationClick = (locationId, locationName) => {
+    // 跳转到地图页面，并传递选中地点的ID和名称
+    navigate('/map', { 
+      state: { 
+        selectedLocationId: locationId,
+        fromLocationsPage: true,
+        locationName: locationName
+      } 
+    });
+  };
 
   // === Check user authentication status ===
   useEffect(() => {
@@ -114,7 +128,11 @@ const LocationsPage = () => {
   }, [isLoggedIn]);
 
   // Toggle favorite - calls backend API
-  const toggleFavorite = async (locationId) => {
+  const toggleFavorite = async (locationId, e) => {
+    if (e) {
+      e.stopPropagation(); // 新增：阻止事件冒泡
+    }
+    
     if (!isLoggedIn) {
       alert("Please login to add favorites");
       return;
@@ -286,7 +304,12 @@ const LocationsPage = () => {
           <tbody>
             {filteredAndSorted.length > 0 ? (
               filteredAndSorted.map((loc) => (
-                <tr key={loc.id}>
+                <tr 
+                  key={loc.id}
+                  className="location-row" // 新增：添加类名用于样式
+                  onClick={() => handleLocationClick(loc.id, loc.name)} // 新增：行点击事件
+                  style={{ cursor: 'pointer' }} // 新增：鼠标指针样式
+                >
                   <td>{loc.id}</td>
                   <td>{loc.name}</td>
                   <td>{loc.distance.toFixed(1)}</td>
@@ -297,7 +320,7 @@ const LocationsPage = () => {
                       className={`fav-btn ${
                         favorites.includes(loc.id) ? "active" : ""
                       } ${!isLoggedIn ? "disabled" : ""}`}
-                      onClick={() => toggleFavorite(loc.id)}
+                      onClick={(e) => toggleFavorite(loc.id, e)} // 修改：传递事件对象
                       disabled={loadingFavorites || !isLoggedIn}
                       title={!isLoggedIn ? "Login to add favorites" : ""}
                     >
