@@ -42,5 +42,6 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {},
+  "proxy": "http://localhost:3000",
   "description": ""
 }

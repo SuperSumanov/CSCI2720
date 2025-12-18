@@ -6,6 +6,19 @@ const { UpdateEventNumForLocations } = require('../services/getEventNum');
 
 const router = express.Router();
 
+router.get('/me', (req, res) => {
+  if (!req.session.user) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+  
+  res.json({
+    _id: req.session.user._id,
+    username: req.session.user.username,
+    role: req.session.user.role,
+    // 添加其他需要的用户信息
+  });
+});
+
 router.post('/', async (req, res) => {
   const { username, password, token } = req.body;
 
@@ -61,7 +74,14 @@ router.post('/', async (req, res) => {
     }
   })();
 
-  res.json({ message: "Login successful" });
+  res.json({
+    message: "Login successful",
+    user: {
+      _id: user._id,
+      username: user.username,
+      role: user.role
+    }
+  });
 });
 
 router.post('/logout', (req, res) => {
