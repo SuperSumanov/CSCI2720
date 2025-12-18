@@ -1,10 +1,28 @@
-import React, { useContext } from "react";
+import React, { useContext, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import "../styles/header.css";
 
 const Header = () => {
   const { user, logout } = useContext(AuthContext);
+
+  // 主题切换逻辑
+  const toggleTheme = () => {
+    const currentTheme = document.documentElement.getAttribute("data-theme");
+    const newTheme = currentTheme === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", newTheme);
+    localStorage.setItem("theme", newTheme);
+  };
+
+  // 初始化主题
+  useEffect(() => {
+    // 检查 localStorage 或系统主题
+    const storedTheme = localStorage.getItem("theme");
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    
+    const theme = storedTheme || (prefersDark ? "dark" : "light");
+    document.documentElement.setAttribute("data-theme", theme);
+  }, []);
 
   return (
     <header className="header">
@@ -28,6 +46,12 @@ const Header = () => {
       </nav>
 
       <div className="header-right">
+        {/* 主题切换按钮 */}
+        <button className="theme-toggle" onClick={toggleTheme} title="Toggle theme">
+          <span className="sun-icon">☀️</span>
+          <span className="moon-icon" style={{ display: 'none' }}>🌙</span>
+        </button>
+
         {user ? (
           <>
             <span className="username">👤 {user.username}</span>

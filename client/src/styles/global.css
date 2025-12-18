@@ -17,3 +17,164 @@ header a {
 button {
   cursor: pointer;
 }
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background: #fafafa;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+header {
+  background: #1a1a1a;
+  color: white;
+  padding: 1rem;
+  transition: background-color 0.3s ease;
+}
+header a {
+  color: white;
+  margin-right: 1rem;
+  text-decoration: none;
+}
+button {
+  cursor: pointer;
+}
+
+/* 主题变量定义 */
+:root {
+  --primary-bg: #ffffff;
+  --secondary-bg: #f5f5f5;
+  --text-color: #333333;
+  --text-secondary: #666666;
+  --border-color: #dddddd;
+  --header-bg: #242424;
+  --footer-bg: #181818;
+  --card-bg: #ffffff;
+  --input-bg: #ffffff;
+  --hover-color: #f8f9fa;
+}
+
+/* 暗色主题 */
+[data-theme="dark"] {
+  --primary-bg: #121212;
+  --secondary-bg: #1e1e1e;
+  --text-color: #ffffff;
+  --text-secondary: #bbbbbb;
+  --border-color: #444444;
+  --header-bg: #0a0a0a;
+  --footer-bg: #0a0a0a;
+  --card-bg: #1e1e1e;
+  --input-bg: #2d2d2d;
+  --hover-color: #2a2a2a;
+}
+
+/* 应用主题变量 */
+body {
+  background-color: var(--primary-bg);
+  color: var(--text-color);
+}
+
+.locations-page,
+.admin-dashboard,
+.login-container {
+  background-color: var(--primary-bg) !important;
+  color: var(--text-color) !important;
+}
+
+.header {
+  background: var(--header-bg) !important;
+}
+
+.footer {
+  background: var(--footer-bg) !important;
+  color: var(--text-color);
+}
+
+.login-box,
+.locations-table,
+.table-container,
+.filters,
+.dashboard-card,
+.event-modal,
+.user-modal,
+.stat-card,
+.venue-card,
+.modal-content,
+.login-prompt {
+  background-color: var(--card-bg) !important;
+  color: var(--text-color) !important;
+  border-color: var(--border-color) !important;
+}
+
+.filter-item input[type="text"],
+.filter-item select,
+.filter-item input[type="range"],
+.fav-btn,
+.remove-btn,
+.clear-all-btn,
+.clear-search-btn,
+.browse-link,
+.login-link,
+.dashboard-link,
+.page-btn,
+.details-btn {
+  background-color: var(--input-bg) !important;
+  color: var(--text-color) !important;
+  border-color: var(--border-color) !important;
+}
+
+.locations-table th,
+.locations-table tr:nth-child(even) td {
+  background-color: var(--secondary-bg) !important;
+}
+
+.locations-table tr:hover td {
+  background-color: var(--hover-color) !important;
+}
+
+.hint,
+.favorites-footer,
+.result-counter,
+.page-info {
+  color: var(--text-secondary) !important;
+}
+
+/* 主题切换按钮 */
+.theme-toggle {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 1.2rem;
+  padding: 0.5rem;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.3s;
+}
+
+.theme-toggle:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.theme-toggle .sun-icon,
+.theme-toggle .moon-icon {
+  transition: transform 0.3s ease;
+}
+
+.theme-toggle .sun-icon {
+  color: #ffd700;
+}
+
+.theme-toggle .moon-icon {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .theme-toggle .sun-icon {
+  transform: rotate(90deg);
+}
+
+[data-theme="light"] .theme-toggle .moon-icon {
+  transform: rotate(-90deg);
+}

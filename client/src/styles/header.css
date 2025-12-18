@@ -2,9 +2,10 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #242424;
+  background: var(--header-bg);
   color: white;
   padding: 1rem 2rem;
+  transition: background-color 0.3s ease;
 }
 
 .header h1 {
@@ -21,6 +22,7 @@
 
 .header-nav a:hover {
   text-decoration: underline;
+  opacity: 0.9;
 }
 
 .header-right {
@@ -37,4 +39,14 @@
   border-radius: 4px;
   cursor: pointer;
   font-size: 0.9rem;
+  transition: background-color 0.3s;
+}
+
+.logout:hover {
+  background: #ff3333;
+}
+
+.username {
+  font-size: 0.9rem;
+  opacity: 0.9;
 }

@@ -29,6 +29,21 @@ const MapPage = () => {
 
     const API_BASE_URL = 'http://localhost:3000';
 
+    const getThemeStyles = () => {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    
+    return {
+        headerBg: isDark ? '#0a0a0a' : 'linear-gradient(135deg, #2c3e50, #3498db)',
+        mapBg: isDark ? '#2d3748' : '#f5f5f5',
+        panelBg: isDark ? '#1a202c' : 'white',
+        textColor: isDark ? 'white' : '#222',
+        secondaryText: isDark ? '#a0aec0' : '#666',
+        borderColor: isDark ? '#4a5568' : '#e0e0e0',
+        inputBg: isDark ? '#2d3748' : 'white',
+        buttonBg: isDark ? '#4a5568' : '#f8f9fa',
+    };
+    };
+
     // 保存收藏状态到sessionStorage（可选，用于临时缓存）
     const saveFavoritesToSessionStorage = (favoritesMap) => {
         try {
@@ -705,7 +720,7 @@ const MapPage = () => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 height: '100vh',
-                background: 'linear-gradient(135deg, #2c3e50, #3498db)',
+                background: getThemeStyles().headerBg,
                 color: 'white'
             }}>
                 <h1>Authentication Required</h1>

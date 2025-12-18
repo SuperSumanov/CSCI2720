@@ -640,3 +640,113 @@
     width: 100%;
   }
 }
+.locations-page {
+  background-color: var(--primary-bg);
+  color: var(--text-color);
+  transition: all 0.3s ease;
+}
+
+.locations-page h2 {
+  color: var(--text-color);
+}
+
+.filters {
+  background: var(--card-bg);
+  border-color: var(--border-color);
+}
+
+.filter-item label {
+  color: var(--text-color);
+}
+
+.filter-item input[type="text"],
+.filter-item select {
+  background-color: var(--input-bg);
+  color: var(--text-color);
+  border-color: var(--border-color);
+}
+
+.filter-item input[type="text"]:focus,
+.filter-item select:focus {
+  border-color: #2c7be5;
+}
+
+.table-container {
+  background: var(--card-bg);
+  border-color: var(--border-color);
+}
+
+.locations-table th {
+  background: var(--secondary-bg);
+  color: var(--text-color);
+}
+
+.locations-table td {
+  background: var(--card-bg);
+  color: var(--text-color);
+  border-bottom-color: var(--border-color);
+}
+
+.locations-table tr:nth-child(even) td {
+  background: var(--secondary-bg);
+}
+
+.locations-table tr:hover td {
+  background-color: var(--hover-color);
+}
+
+.fav-btn {
+  color: var(--text-color);
+}
+
+.fav-btn.active {
+  color: gold;
+}
+
+.no-results {
+  color: var(--text-secondary);
+}
+
+/* 收藏页面特定样式 */
+.login-prompt {
+  background: var(--card-bg);
+  color: var(--text-color);
+}
+
+.login-link {
+  background: #2c7be5;
+  color: white;
+}
+
+.favorites-stats {
+  color: var(--text-color);
+}
+
+.stat-card {
+  background: var(--card-bg);
+}
+
+.stat-card h3 {
+  color: #2c7be5;
+}
+
+.stat-card p {
+  color: var(--text-secondary);
+}
+
+.area-badge {
+  background: var(--secondary-bg);
+  color: var(--text-color);
+}
+
+.popularity-bar {
+  background: var(--border-color);
+}
+
+.empty-state h3 {
+  color: var(--text-color);
+}
+
+.empty-state p {
+  color: var(--text-secondary);
+}
