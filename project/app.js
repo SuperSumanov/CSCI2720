@@ -39,7 +39,14 @@ app.use((req, res, next) => {
 
 // Routes
 app.use('/login', authRoutes);
-app.use('/logout', authRoutes);
+app.post('/logout', (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      return res.status(500).json({ error: 'Failed to logout' });
+    }
+    res.json({ message: 'Logged out' });
+  });
+});
 app.use('/2fa', twoFactorRoutes);
 app.use('/admin/events', adminEventRoutes);
 app.use('/admin/users', adminUserRoutes);

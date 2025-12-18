@@ -11,12 +11,13 @@ const LoginPage = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [requires2FA, setRequires2FA] = useState(false);
-  const [pendingUser, setPendingUser] = useState(null);
   const navigate = useNavigate();
 
-  // ✅ Redirect if already logged in
+  // ✅ 已登录用户重定向
   useEffect(() => {
+    console.log("LoginPage: Current user:", user);
     if (user) {
+      console.log("LoginPage: User already logged in, redirecting based on role:", user.role);
       if (user.role === "admin") {
         navigate("/admin");
       } else {
@@ -31,12 +32,14 @@ const LoginPage = () => {
     setLoading(true);
 
     try {
+      console.log("Login attempt for:", username);
+      
       const response = await fetch("/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        credentials: "include", // 重要：包含 session cookie
+        credentials: "include",
         body: JSON.stringify({
           username,
           password,
@@ -44,57 +47,60 @@ const LoginPage = () => {
         }),
       });
 
+      console.log("Login response status:", response.status);
       const data = await response.json();
+      console.log("Login response data:", data);
 
       if (!response.ok) {
         throw new Error(data.error || "Login failed");
       }
 
       if (data.requires2FA && !requires2FA) {
-        // 需要 2FA 验证
+        console.log("2FA required");
         setRequires2FA(true);
-        setPendingUser({ username, password });
         setError("");
         setLoading(false);
         return;
       }
 
-    // ✅ 如果后端已经返回用户信息，则直接使用，不再请求 /login/me
-    if (data.user) {
-      login(data.user.username, data.user.role);
-      navigate(data.user.role === "admin" ? "/admin" : "/locations");
-      return;
+      // ✅ 使用后端返回的完整用户对象
+      if (data.user) {
+        console.log("Setting user context with:", data.user);
+        // 调用login函数，传入完整的user对象
+        login(data.user);
+        
+        // 不需要在这里navigate，因为useEffect会处理重定向
+        // useEffect会检测到user状态变化并自动重定向
+        return;
+      }
+
+      // 如果后端没有返回user数据，尝试从/login/me获取
+      console.log("Fetching user data from /login/me");
+      const userRes = await fetch("/login/me", {
+        credentials: "include",
+      });
+      
+      if (userRes.ok) {
+        const userData = await userRes.json();
+        console.log("User data from /login/me:", userData);
+        login(userData);
+      } else {
+        throw new Error("Failed to fetch user session");
+      }
+
+    } catch (err) {
+      console.error("Login error:", err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
-
-    // 兼容旧后端（未返回用户信息）逻辑
-    const userRes = await fetch("/login/me", {
-      credentials: "include",
-    });
-    let userData;
-    if (userRes.ok) {
-      userData = await userRes.json();
-    } else {
-      setError("Failed to fetch user session");
-      return;
-    }
-
-    login(userData.username, userData.role);
-    navigate(userData.role === "admin" ? "/admin" : "/locations");
-
-        } catch (err) {
-          setError(err.message);
-          console.error("Login error:", err);
-        } finally {
-          setLoading(false);
-        }
-      };
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
     handleLogin(e);
   };
 
-  // 处理 2FA 令牌提交
   const handle2FASubmit = (e) => {
     e.preventDefault();
     if (!token) {
@@ -104,7 +110,7 @@ const LoginPage = () => {
     handleLogin(e);
   };
 
-  // 返回普通登录表单
+  // 显示登录表单...
   if (!requires2FA) {
     return (
       <div className="login-container">
@@ -143,7 +149,7 @@ const LoginPage = () => {
     );
   }
 
-  // 2FA 表单
+  // 2FA 表单...
   return (
     <div className="login-container">
       <div className="login-box">
