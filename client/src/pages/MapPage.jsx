@@ -738,50 +738,6 @@ const MapPage = () => {
             padding: 0,
             fontFamily: 'Arial, sans-serif'
         }}>
-            {/* Header */}
-            <header style={{
-                background: 'linear-gradient(135deg, #2c3e50, #3498db)',
-                color: 'white',
-                padding: '1rem 2rem',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
-            }}>
-                <h1 style={{ margin: 0, fontSize: '1.5rem' }}>
-                    Cultural Events Map
-                </h1>
-                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                    {/* 显示当前用户 */}
-                    <div style={{ 
-                        fontSize: '0.9rem', 
-                        background: 'rgba(255,255,255,0.2)',
-                        padding: '0.25rem 0.75rem',
-                        borderRadius: '4px'
-                    }}>
-                        Welcome, {user.username}
-                    </div>
-                    
-                    <button
-                        onClick={refreshData}
-                        style={{
-                            background: 'rgba(255,255,255,0.2)',
-                            border: 'none',
-                            color: 'white',
-                            padding: '0.5rem 1rem',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            fontSize: '0.9rem'
-                        }}
-                    >
-                        Refresh
-                    </button>
-                    <div style={{ fontSize: '0.9rem', opacity: 0.9 }}>
-                        Locations: {locations.length}
-                    </div>
-                </div>
-            </header>
-
             {/* Main content area */}
             <main style={{ 
                 flex: 1, 
