@@ -6,6 +6,16 @@ const { UpdateEventNumForLocations } = require('../services/getEventNum');
 
 const router = express.Router();
 
+function formatDate(date) { 
+  const pad = n => n.toString().padStart(2, '0'); 
+  const year = date.getFullYear(); 
+  const month = pad(date.getMonth() + 1); 
+  const day = pad(date.getDate()); 
+  const hour = pad(date.getHours()); 
+  const minute = pad(date.getMinutes()); 
+  const second = pad(date.getSeconds()); 
+  return `${year}-${month}-${day} ${hour}:${minute}:${second}`; 
+}
 router.get('/me', (req, res) => {
   if (!req.session.user) {
     return res.status(401).json({ error: 'Not authenticated' });
@@ -60,19 +70,19 @@ router.post('/', async (req, res) => {
     }
   }
 
-  req.session.user = { _id: user._id, username: user.username, role: user.role };
+  req.session.user = { _id: user._id, username: user.username, role: user.role, login_time: formatDate(new Date()) };
   req.session.pending2FA = null;
 
-  (async () => {
-    try {
-      console.log("Updating events & locations...");
-      await fetchAndStoreData();
-      await UpdateEventNumForLocations();
-      console.log("Update completed.");
-    } catch (err) {
-      console.error("Update failed:", err);
-    }
-  })();
+  // (async () => {
+  //   try {
+  //     console.log("Updating events & locations...");
+  //     await fetchAndStoreData();
+  //     await UpdateEventNumForLocations();
+  //     console.log("Update completed.");
+  //   } catch (err) {
+  //     console.error("Update failed:", err);
+  //   }
+  // })();
 
   res.json({
     message: "Login successful",
@@ -80,7 +90,8 @@ router.post('/', async (req, res) => {
       _id: user._id,
       username: user.username,
       role: user.role
-    }
+    }, 
+    login_time: formatDate(new Date()) 
   });
 });
 
