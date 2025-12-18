@@ -1,8 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useContext } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { AuthContext } from "../context/AuthContext";
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const MapPage = () => {
+
+    const navigate = useNavigate();
+    const location = useLocation();
+    const { user, login } = useContext(AuthContext);
     const [locations, setLocations] = useState([]);
     const [selectedLocation, setSelectedLocation] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -10,14 +16,298 @@ const MapPage = () => {
     const [comments, setComments] = useState([]);
     const [newComment, setNewComment] = useState('');
     const [isCommentsPaneOpen, setIsCommentsPaneOpen] = useState(false);
+    const [favorites, setFavorites] = useState(() => {
+        // 从localStorage初始化收藏状态
+        const savedFavorites = localStorage.getItem('mapFavorites');
+        return savedFavorites ? JSON.parse(savedFavorites) : {};
+    });
+    const [isCheckingFavorite, setIsCheckingFavorite] = useState(false);
+    const [isLoadingComments, setIsLoadingComments] = useState(false);
+    const [commentError, setCommentError] = useState('');
     
     const mapRef = useRef(null);
     const mapInstanceRef = useRef(null);
     const markersRef = useRef([]);
 
+
     const API_BASE_URL = 'http://localhost:3000';
 
-    // Test backend connection
+    // 从localStorage获取token
+    const getAuthToken = () => {
+        return localStorage.getItem('token') || '';
+    };
+
+
+    // 保存收藏状态到localStorage
+    const saveFavoritesToLocalStorage = (favoritesMap) => {
+        try {
+            localStorage.setItem('mapFavorites', JSON.stringify(favoritesMap));
+        } catch (error) {
+            console.error('Error saving favorites to localStorage:', error);
+        }
+    };
+
+    // 更新收藏状态并保存到localStorage
+    const updateFavoriteStatus = useCallback((locationId, isFav) => {
+        setFavorites(prev => {
+            const newFavorites = {
+                ...prev,
+                [locationId]: isFav
+            };
+            // 保存到localStorage
+            saveFavoritesToLocalStorage(newFavorites);
+            return newFavorites;
+        });
+    }, []);
+
+    // 获取用户的所有收藏 - 使用useCallback避免重复创建
+    const fetchUserFavorites = useCallback(async () => {
+        
+        try {
+            const token = getAuthToken();
+            const response = await fetch(`${API_BASE_URL}/favorite/my-all`, {
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (response.ok) {
+                const favoritesData = await response.json();
+                // 转换为 {locationId: true} 的格式
+                const favoritesMap = {};
+                favoritesData.forEach(fav => {
+                    const locationId = fav.locationId || fav.location?.id;
+                    if (locationId) {
+                        favoritesMap[locationId] = true;
+                    }
+                });
+                return favoritesMap;
+            }
+            return {};
+        } catch (error) {
+            console.error('Error fetching favorites:', error);
+            return {};
+        }
+    }, []);
+
+    // 加载用户收藏 - 在组件初始化时调用
+    const loadUserFavorites = async () => {
+        
+        setIsCheckingFavorite(true);
+        try {
+            const favoritesMap = await fetchUserFavorites();
+            // 合并localStorage和服务器端的收藏状态
+            const currentFavorites = JSON.parse(localStorage.getItem('mapFavorites') || '{}');
+            const mergedFavorites = { ...currentFavorites, ...favoritesMap };
+            
+            setFavorites(mergedFavorites);
+            saveFavoritesToLocalStorage(mergedFavorites);
+            console.log(`Loaded ${Object.keys(favoritesMap).length} favorites from server`);
+        } catch (error) {
+            console.error('Failed to load favorites from server:', error);
+            // 使用localStorage中的收藏状态
+            console.log('Using localStorage favorites instead');
+        } finally {
+            setIsCheckingFavorite(false);
+        }
+    };
+
+    // 检查特定地点是否为收藏
+    const isLocationFavorite = (locationId) => {
+        return !!favorites[locationId];
+    };
+
+    // 收藏地点
+    const addToFavorites = async () => {
+        if (!selectedLocation) return;
+        
+        try {
+            
+            const response = await fetch(`${API_BASE_URL}/favorite/${selectedLocation}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (response.ok || response.status === 409) {
+                // 更新本地状态
+                updateFavoriteStatus(selectedLocation, true);
+                alert('Location added to favorites!');
+            } else {
+                const errorData = await response.json();
+                alert(`Failed to add to favorites: ${errorData.error}`);
+            }
+        } catch (error) {
+            console.error('Error adding to favorites:', error);
+            alert('Failed to add to favorites. Please try again.');
+        }
+    };
+
+    // 取消收藏
+    const removeFromFavorites = async () => {
+        if (!selectedLocation) return;
+        
+        try {
+            
+            const response = await fetch(`${API_BASE_URL}/favorite/${selectedLocation}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (response.ok) {
+                // 更新本地状态
+                updateFavoriteStatus(selectedLocation, false);
+                alert('Location removed from favorites!');
+            } else if (response.status === 404) {
+                // 如果后端说没有收藏，也更新本地状态
+                updateFavoriteStatus(selectedLocation, false);
+                alert('This location was not in your favorites.');
+            } else {
+                const errorData = await response.json();
+                alert(`Failed to remove from favorites: ${errorData.error}`);
+            }
+        } catch (error) {
+            console.error('Error removing from favorites:', error);
+            alert('Failed to remove from favorites. Please try again.');
+        }
+    };
+
+    // 切换收藏状态
+    const toggleFavorite = () => {
+        if (isLocationFavorite(selectedLocation)) {
+            removeFromFavorites();
+        } else {
+            addToFavorites();
+        }
+    };
+
+    // 从后端获取特定地点的评论
+    const fetchLocationComments = async (locationId) => {
+        if (!locationId) return;
+        
+        setIsLoadingComments(true);
+        setCommentError('');
+        
+        try {
+            console.log(`Fetching comments for location: ${locationId}`);
+            const response = await fetch(`${API_BASE_URL}/comment/loc-all/${locationId}`);
+            
+            if (response.ok) {
+                const commentsData = await response.json();
+                console.log(`Got ${commentsData.length} comments for location ${locationId}`);
+                
+                // 将timestamp转换为可读格式
+                const formattedComments = commentsData.map(comment => ({
+                    id: comment.commentId,
+                    userId: comment.userId,
+                    username: comment.username || `User ${comment.userId.substring(0, 6)}`, // 如果没有用户名，使用用户ID前6位
+                    text: comment.content,
+                    date: new Date(comment.timestamp).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    }),
+                    timestamp: comment.timestamp
+                }));
+                
+                // 按时间排序（最新的在前面）
+                formattedComments.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                
+                setComments(formattedComments);
+            } else {
+                const errorData = await response.json();
+                setCommentError(`Failed to load comments: ${errorData.error || 'Unknown error'}`);
+                console.error('Failed to fetch comments:', errorData);
+            }
+        } catch (error) {
+            console.error('Error fetching comments:', error);
+            setCommentError(`Failed to load comments: ${error.message}`);
+        } finally {
+            setIsLoadingComments(false);
+        }
+    };
+
+    // 提交评论到后端
+    const submitComment = async () => {
+        if (!newComment.trim() || !selectedLocation) return;
+        
+        
+        const token = getAuthToken();
+        
+        try {
+            setCommentError('');
+            const response = await fetch(`${API_BASE_URL}/comment/send`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    locID: selectedLocation,
+                    content: newComment.trim()
+                })
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                console.log('Comment posted successfully:', result);
+                
+                // 清空输入框
+                setNewComment('');
+                
+                // 重新加载评论
+                await fetchLocationComments(selectedLocation);
+                
+                alert('Comment posted successfully!');
+            } else {
+                const errorData = await response.json();
+                setCommentError(`Failed to post comment: ${errorData.error || 'Unknown error'}`);
+                alert(`Failed to post comment: ${errorData.error || 'Unknown error'}`);
+            }
+        } catch (error) {
+            console.error('Error posting comment:', error);
+            setCommentError(`Failed to post comment: ${error.message}`);
+            alert(`Failed to post comment: ${error.message}`);
+        }
+    };
+
+    // 删除评论（需要用户登录且是自己的评论）
+    const deleteComment = async (commentId) => {
+        if (!commentId) return;
+        
+        if (!window.confirm('Are you sure you want to delete this comment?')) {
+            return;
+        }
+        
+        const token = getAuthToken();
+        try {
+            const response = await fetch(`${API_BASE_URL}/comment/del/${commentId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (response.ok) {
+                console.log('Comment deleted successfully');
+                // 重新加载评论
+                await fetchLocationComments(selectedLocation);
+                alert('Comment deleted successfully!');
+            } else {
+                const errorData = await response.json();
+                alert(`Failed to delete comment: ${errorData.error || 'Unknown error'}`);
+            }
+        } catch (error) {
+            console.error('Error deleting comment:', error);
+            alert(`Failed to delete comment: ${error.message}`);
+        }
+    };
+
+    // 原有的辅助函数保持不变
     const testBackendConnection = async () => {
         try {
             console.log('Testing backend connection...');
@@ -33,12 +323,10 @@ const MapPage = () => {
         }
     };
 
-    // Helper function to calculate offset for overlapping markers
     const calculateOffset = (index, totalAtSameLocation) => {
         if (totalAtSameLocation <= 1) return { latOffset: 0, lngOffset: 0 };
         
-        // Create a circular pattern for markers at same location
-        const radius = 0.0005; // Small offset in degrees
+        const radius = 0.0005;
         const angle = (2 * Math.PI * index) / totalAtSameLocation;
         
         return {
@@ -47,12 +335,10 @@ const MapPage = () => {
         };
     };
 
-    // Process locations to handle overlapping coordinates
     const processLocations = (rawLocations) => {
         const locationGroups = {};
         const processedLocations = [];
         
-        // Group locations by coordinates
         rawLocations.forEach(location => {
             const key = `${location.latitude.toFixed(6)},${location.longitude.toFixed(6)}`;
             if (!locationGroups[key]) {
@@ -61,7 +347,6 @@ const MapPage = () => {
             locationGroups[key].push(location);
         });
         
-        // Apply offsets to overlapping locations
         Object.values(locationGroups).forEach(locationGroup => {
             if (locationGroup.length > 1) {
                 console.log(`Found ${locationGroup.length} locations at same coordinates:`, 
@@ -86,7 +371,6 @@ const MapPage = () => {
         return processedLocations;
     };
 
-    // Fetch location data - robust version
     const fetchLocations = async () => {
         setIsLoading(true);
         setError('');
@@ -94,13 +378,11 @@ const MapPage = () => {
         try {
             console.log('Fetching location data...');
             
-            // Test connection first
             const isConnected = await testBackendConnection();
             if (!isConnected) {
                 throw new Error('Cannot connect to backend server');
             }
             
-            // Try multiple possible endpoints
             const endpoints = [
                 '/api/locations',
                 '/locations',
@@ -141,11 +423,9 @@ const MapPage = () => {
             
             if (locationsData.length === 0) {
                 console.warn('Got empty location data, using mock data');
-                // Use mock data as fallback
                 locationsData = getMockLocations();
             }
             
-            // Data cleaning and validation
             const validLocations = locationsData
                 .filter(loc => loc && 
                     loc.id && 
@@ -165,11 +445,9 @@ const MapPage = () => {
             
             console.log(`Valid location data: ${validLocations.length} records`);
             
-            // Process locations to handle overlapping coordinates
             const processedLocations = processLocations(validLocations);
             setLocations(processedLocations);
             
-            // Initialize map if there is valid data
             if (processedLocations.length > 0 && mapRef.current && !mapInstanceRef.current) {
                 initMap(processedLocations);
             }
@@ -178,13 +456,11 @@ const MapPage = () => {
             console.error('Failed to fetch location data:', error);
             setError(`Failed to load location data: ${error.message}`);
             
-            // Use mock data as fallback
             console.log('Using mock data as fallback');
             const mockLocations = getMockLocations();
             const processedMockLocations = processLocations(mockLocations);
             setLocations(processedMockLocations);
             
-            // Initialize map
             if (mapRef.current && !mapInstanceRef.current) {
                 initMap(processedMockLocations);
             }
@@ -193,7 +469,6 @@ const MapPage = () => {
         }
     };
 
-    // Mock data (fallback)
     const getMockLocations = () => {
         return [
             { id: '3110031', name: 'Hong Kong Cultural Centre', latitude: 22.2933, longitude: 114.1699, area: 'North District', eventNum: 3 },
@@ -209,14 +484,12 @@ const MapPage = () => {
         ];
     };
 
-    // Initialize map
     const initMap = (locationsToMap) => {
         if (mapInstanceRef.current || !mapRef.current) return;
         
         try {
             console.log('Initializing map...');
             
-            // Calculate center point
             const centerLat = locationsToMap.reduce((sum, loc) => sum + loc.displayLatitude, 0) / locationsToMap.length;
             const centerLng = locationsToMap.reduce((sum, loc) => sum + loc.displayLongitude, 0) / locationsToMap.length;
             
@@ -239,11 +512,9 @@ const MapPage = () => {
         }
     };
 
-    // Add markers to map
     const addMarkersToMap = () => {
         if (!mapInstanceRef.current || locations.length === 0) return;
         
-        // Clear existing markers
         markersRef.current.forEach(marker => {
             if (marker && mapInstanceRef.current) {
                 mapInstanceRef.current.removeLayer(marker);
@@ -251,12 +522,10 @@ const MapPage = () => {
         });
         markersRef.current = [];
         
-        // Create custom icon
         const createCustomIcon = (isSelected = false, eventNum = 0, isOffset = false) => {
             const hasEvents = eventNum > 0;
             const bgColor = isSelected ? '#e74c3c' : hasEvents ? '#2ecc71' : '#3498db';
             
-            // Add visual indicator for offset markers
             const offsetIndicator = isOffset ? '<div style="position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); width: 6px; height: 6px; background: #f39c12; border-radius: 50%;"></div>' : '';
             
             return L.divIcon({
@@ -306,13 +575,10 @@ const MapPage = () => {
             });
         };
         
-        // Determine which locations to show
-        // If a location is selected, only show that one. Otherwise, show all.
         const locationsToShow = selectedLocation 
             ? locations.filter(location => location.id === selectedLocation)
             : locations;
         
-        // Add markers
         locationsToShow.forEach(location => {
             const isSelected = selectedLocation === location.id;
             const marker = L.marker([location.displayLatitude, location.displayLongitude], {
@@ -339,10 +605,13 @@ const MapPage = () => {
         });
     };
 
+
+
     // Component mount
     useEffect(() => {
         console.log('MapPage component mounted');
         fetchLocations();
+        loadUserFavorites(); // 加载收藏
         
         return () => {
             if (mapInstanceRef.current) {
@@ -352,6 +621,18 @@ const MapPage = () => {
         };
     }, []);
 
+    // 监听storage事件，当token变化时重新加载收藏
+    useEffect(() => {
+        const handleStorageChange = (e) => {
+            if (e.key === 'token') {
+                loadUserFavorites();
+            }
+        };
+        
+        window.addEventListener('storage', handleStorageChange);
+        return () => window.removeEventListener('storage', handleStorageChange);
+    }, []);
+
     // Update map when location data changes
     useEffect(() => {
         if (locations.length > 0 && mapInstanceRef.current) {
@@ -359,28 +640,30 @@ const MapPage = () => {
         }
     }, [locations, selectedLocation]);
 
-    const handleMarkerClick = (locationId) => {
+    const handleMarkerClick = async (locationId) => {
         const location = locations.find(loc => loc.id === locationId);
         if (!location) return;
         
         setSelectedLocation(locationId);
-        setComments([]); // Clear comments
         setIsCommentsPaneOpen(true);
         
-        // Move to selected location (use original coordinates for better centering)
+        // 从后端加载评论
+        await fetchLocationComments(locationId);
+        
+        // Move to selected location
         if (mapInstanceRef.current) {
             const lat = location.originalLatitude || location.latitude;
             const lng = location.originalLongitude || location.longitude;
             mapInstanceRef.current.setView([lat, lng], 20);
         }
-        
-        // Note: addMarkersToMap will be called automatically due to the useEffect dependency on selectedLocation
-        // This will cause only the selected marker to be displayed
     };
 
     const closeCommentsPane = () => {
         setIsCommentsPaneOpen(false);
         setSelectedLocation(null); // Clear selected location to show all markers again
+        setComments([]); // 清空评论，下次打开会重新加载
+        setNewComment(''); // 清空评论输入框
+        setCommentError(''); // 清空评论错误信息
         
         // Return to overall view
         if (mapInstanceRef.current && locations.length > 0) {
@@ -388,28 +671,126 @@ const MapPage = () => {
             const centerLng = locations.reduce((sum, loc) => sum + loc.displayLongitude, 0) / locations.length;
             mapInstanceRef.current.setView([centerLat, centerLng], 11);
         }
-        
-        // Note: addMarkersToMap will be called automatically due to the useEffect dependency on selectedLocation
-        // This will cause all markers to be displayed again
-    };
-
-    const handleAddComment = () => {
-        if (!newComment.trim() || !selectedLocation) return;
-        
-        const newCommentObj = {
-            id: Date.now(),
-            username: 'User',
-            text: newComment.trim(),
-            date: new Date().toLocaleDateString('en-US')
-        };
-        
-        setComments(prev => [...prev, newCommentObj]);
-        setNewComment('');
     };
 
     const refreshData = () => {
         fetchLocations();
+        loadUserFavorites();
     };
+
+
+    useEffect(() => {
+        // 检查是否有从 LocationsPage 传递过来的选中地点
+        if (location.state && location.state.selectedLocationId) {
+          const locationId = location.state.selectedLocationId;
+          console.log('Received location ID from navigation:', locationId);
+          
+          // 等待地点数据加载完成后再处理
+          if (locations.length > 0) {
+            const foundLocation = locations.find(loc => loc.id === locationId);
+            if (foundLocation) {
+              // 延迟执行以确保地图已初始化
+              setTimeout(() => {
+                handleMarkerClick(locationId);
+              }, 100);
+            } else {
+              console.warn(`Location with ID ${locationId} not found in loaded data`);
+            }
+          }
+        }
+      }, [locations, location.state]); // 依赖 locations 和 location.state
+      
+      // 修改：在 locations 加载完成后检查是否有传递的选中地点
+      useEffect(() => {
+        if (locations.length > 0 && location.state && location.state.selectedLocationId) {
+          const locationId = location.state.selectedLocationId;
+          const foundLocation = locations.find(loc => loc.id === locationId);
+          
+          if (foundLocation) {
+            // 设置选中地点
+            setSelectedLocation(locationId);
+            setIsCommentsPaneOpen(true);
+            
+            // 移动地图到该位置
+            if (mapInstanceRef.current) {
+              const lat = foundLocation.originalLatitude || foundLocation.latitude;
+              const lng = foundLocation.originalLongitude || foundLocation.longitude;
+              mapInstanceRef.current.setView([lat, lng], 20);
+            }
+            
+            // 加载评论
+            fetchLocationComments(locationId);
+            
+            // 清除状态，避免重复触发
+            // 注意：我们不能直接修改 location.state，但可以清除本地状态
+            // 或者通过 navigate 替换状态
+            navigate(location.pathname, { replace: true, state: {} });
+          }
+        }
+      }, [locations, location.state, mapInstanceRef.current]);
+
+      useEffect(() => {
+        // 只在组件挂载后执行一次
+        const handleNavigationFromLocationsPage = async () => {
+          // 检查是否有从 LocationsPage 传递过来的选中地点
+          if (location.state && location.state.selectedLocationId) {
+            const locationId = location.state.selectedLocationId;
+            console.log('Processing navigation from LocationsPage, locationId:', locationId);
+            
+            // 等待地点数据加载
+            if (locations.length === 0) {
+              console.log('Waiting for locations to load...');
+              // 如果地点数据还没加载，设置一个检查间隔
+              const checkInterval = setInterval(() => {
+                if (locations.length > 0) {
+                  clearInterval(checkInterval);
+                  const foundLocation = locations.find(loc => loc.id === locationId);
+                  if (foundLocation) {
+                    console.log('Found location, opening sidebar...');
+                    setSelectedLocation(locationId);
+                    setIsCommentsPaneOpen(true);
+                    fetchLocationComments(locationId);
+                    
+                    // 移动地图
+                    if (mapInstanceRef.current) {
+                      const lat = foundLocation.originalLatitude || foundLocation.latitude;
+                      const lng = foundLocation.originalLongitude || foundLocation.longitude;
+                      mapInstanceRef.current.setView([lat, lng], 20);
+                    }
+                    
+                    // 清除导航状态
+                    navigate(location.pathname, { replace: true });
+                  }
+                }
+              }, 100);
+              
+              // 5秒后清除检查间隔
+              setTimeout(() => clearInterval(checkInterval), 5000);
+            } else {
+              // 如果地点数据已经加载
+              const foundLocation = locations.find(loc => loc.id === locationId);
+              if (foundLocation) {
+                console.log('Found location in existing data, opening sidebar...');
+                setSelectedLocation(locationId);
+                setIsCommentsPaneOpen(true);
+                fetchLocationComments(locationId);
+                
+                // 移动地图
+                if (mapInstanceRef.current) {
+                  const lat = foundLocation.originalLatitude || foundLocation.latitude;
+                  const lng = foundLocation.originalLongitude || foundLocation.longitude;
+                  mapInstanceRef.current.setView([lat, lng], 20);
+                }
+                
+                // 清除导航状态
+                navigate(location.pathname, { replace: true });
+              }
+            }
+          }
+        };
+        
+        handleNavigationFromLocationsPage();
+      }, [location.state]); // 只依赖 location.state
 
     return (
         <div style={{
@@ -434,6 +815,7 @@ const MapPage = () => {
                     Cultural Events Map
                 </h1>
                 <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+
                     <button
                         onClick={refreshData}
                         style={{
@@ -601,18 +983,57 @@ const MapPage = () => {
                             padding: '1.5rem'
                         }}>
                             <div style={{ marginBottom: '1.5rem' }}>
-                                <h4 style={{ marginBottom: '1rem' }}>
-                                    Comments ({comments.length})
-                                </h4>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                    <h4 style={{ margin: 0 }}>
+                                        Comments ({comments.length})
+                                    </h4>
+                                    <button
+                                        onClick={() => fetchLocationComments(selectedLocation)}
+                                        style={{
+                                            background: '#f8f9fa',
+                                            border: '1px solid #ddd',
+                                            borderRadius: '4px',
+                                            padding: '0.25rem 0.5rem',
+                                            fontSize: '0.8rem',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        Refresh
+                                    </button>
+                                </div>
                                 
-                                {comments.length === 0 ? (
+                                {/* Comment error */}
+                                {commentError && (
+                                    <div style={{
+                                        background: '#ffebee',
+                                        color: '#c62828',
+                                        padding: '0.75rem',
+                                        borderRadius: '6px',
+                                        marginBottom: '1rem',
+                                        fontSize: '0.9rem'
+                                    }}>
+                                        {commentError}
+                                    </div>
+                                )}
+                                
+                                {/* Comments loading */}
+                                {isLoadingComments ? (
                                     <div style={{
                                         textAlign: 'center',
                                         color: '#999',
                                         padding: '2rem 0',
                                         fontStyle: 'italic'
                                     }}>
-                                        Be the first!
+                                        Loading comments...
+                                    </div>
+                                ) : comments.length === 0 ? (
+                                    <div style={{
+                                        textAlign: 'center',
+                                        color: '#999',
+                                        padding: '2rem 0',
+                                        fontStyle: 'italic'
+                                    }}>
+                                        No comments yet. Be the first!
                                     </div>
                                 ) : (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -621,7 +1042,8 @@ const MapPage = () => {
                                                 padding: '1rem',
                                                 background: '#f8f9fa',
                                                 borderRadius: '8px',
-                                                border: '1px solid #eee'
+                                                border: '1px solid #eee',
+                                                position: 'relative'
                                             }}>
                                                 <div style={{ 
                                                     display: 'flex', 
@@ -641,6 +1063,26 @@ const MapPage = () => {
                                                 <div style={{ fontSize: '0.9rem' }}>
                                                     {comment.text}
                                                 </div>
+                                                {/* Delete button (only for user's own comments) */}
+                                                {(
+                                                    <button
+                                                        onClick={() => deleteComment(comment.id)}
+                                                        style={{
+                                                            position: 'absolute',
+                                                            top: '0.5rem',
+                                                            right: '0.5rem',
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            color: '#e74c3c',
+                                                            cursor: 'pointer',
+                                                            fontSize: '0.8rem',
+                                                            opacity: 0.7
+                                                        }}
+                                                        title="Delete comment"
+                                                    >
+                                                        ×
+                                                    </button>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
@@ -672,22 +1114,55 @@ const MapPage = () => {
                                     }}
                                 />
                                 <button
-                                    onClick={handleAddComment}
+                                    onClick={submitComment}
                                     disabled={!newComment.trim()}
                                     style={{
                                         width: '100%',
                                         padding: '0.75rem',
-                                        background: newComment.trim() ? '#3498db' : '#bdc3c7',
+                                        background: newComment.trim() && !isLoadingComments ? '#3498db' : '#bdc3c7',
                                         color: 'white',
                                         border: 'none',
                                         borderRadius: '6px',
-                                        cursor: newComment.trim() ? 'pointer' : 'not-allowed',
+                                        cursor: newComment.trim() && !isLoadingComments ? 'pointer' : 'not-allowed',
                                         fontSize: '0.9rem',
                                         fontWeight: 'bold'
                                     }}
                                 >
-                                    POST COMMENT
+                                    {isLoadingComments ? 'POSTING...' : 'POST COMMENT'}
                                 </button>
+                                
+                                {/* Favorite button */}
+                                {
+                                isCheckingFavorite ? (
+                                    <div style={{
+                                        textAlign: 'center',
+                                        padding: '0.75rem',
+                                        background: '#f8f9fa',
+                                        borderRadius: '6px',
+                                        marginTop: '1rem',
+                                        color: '#666'
+                                    }}>
+                                        Loading favorite status...
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={toggleFavorite}
+                                        style={{
+                                            width: '100%',
+                                            padding: '0.75rem',
+                                            background: isLocationFavorite(selectedLocation) ? '#e74c3c' : '#2ecc71',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '6px',
+                                            cursor: 'pointer',
+                                            fontSize: '0.9rem',
+                                            fontWeight: 'bold',
+                                            marginTop: '1rem'
+                                        }}
+                                    >
+                                        {isLocationFavorite(selectedLocation) ? 'REMOVE FROM FAVORITE' : 'ADD TO FAVORITE'}
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>
