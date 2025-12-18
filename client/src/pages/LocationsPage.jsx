@@ -207,7 +207,8 @@ const LocationsPage = () => {
       (loc) =>
         loc.name?.toLowerCase().includes(search.toLowerCase()) &&
         loc.distance <= maxDistance &&
-        (selectedArea === "All" || loc.area === selectedArea)
+        (selectedArea === "All" || loc.area === selectedArea) &&
+        loc.area !== "Unknown" && loc.area.trim() !== "" // 新增：确保 area 有值
     );
 
     list.sort((a, b) => {
