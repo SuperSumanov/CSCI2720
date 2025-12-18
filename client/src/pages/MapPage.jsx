@@ -16,14 +16,11 @@ const MapPage = () => {
     const [comments, setComments] = useState([]);
     const [newComment, setNewComment] = useState('');
     const [isCommentsPaneOpen, setIsCommentsPaneOpen] = useState(false);
-    const [favorites, setFavorites] = useState(() => {
-        // 从localStorage初始化收藏状态
-        const savedFavorites = localStorage.getItem('mapFavorites');
-        return savedFavorites ? JSON.parse(savedFavorites) : {};
-    });
+    const [favorites, setFavorites] = useState({});
     const [isCheckingFavorite, setIsCheckingFavorite] = useState(false);
     const [isLoadingComments, setIsLoadingComments] = useState(false);
     const [commentError, setCommentError] = useState('');
+    const [processedNavigation, setProcessedNavigation] = useState(false);
     
     const mapRef = useRef(null);
     const mapInstanceRef = useRef(null);
@@ -32,43 +29,33 @@ const MapPage = () => {
 
     const API_BASE_URL = 'http://localhost:3000';
 
-    // 从localStorage获取token
-    const getAuthToken = () => {
-        return localStorage.getItem('token') || '';
-    };
-
-
-    // 保存收藏状态到localStorage
-    const saveFavoritesToLocalStorage = (favoritesMap) => {
+    // 保存收藏状态到sessionStorage（可选，用于临时缓存）
+    const saveFavoritesToSessionStorage = (favoritesMap) => {
         try {
-            localStorage.setItem('mapFavorites', JSON.stringify(favoritesMap));
+            sessionStorage.setItem('mapFavorites', JSON.stringify(favoritesMap));
         } catch (error) {
-            console.error('Error saving favorites to localStorage:', error);
+            console.error('Error saving favorites to sessionStorage:', error);
         }
     };
 
-    // 更新收藏状态并保存到localStorage
+    // 更新收藏状态
     const updateFavoriteStatus = useCallback((locationId, isFav) => {
         setFavorites(prev => {
             const newFavorites = {
                 ...prev,
                 [locationId]: isFav
             };
-            // 保存到localStorage
-            saveFavoritesToLocalStorage(newFavorites);
+            // 保存到sessionStorage（可选缓存）
+            saveFavoritesToSessionStorage(newFavorites);
             return newFavorites;
         });
     }, []);
 
-    // 获取用户的所有收藏 - 使用useCallback避免重复创建
+    // 获取用户的所有收藏 - 每次打开页面时调用
     const fetchUserFavorites = useCallback(async () => {
-        
         try {
-            const token = getAuthToken();
             const response = await fetch(`${API_BASE_URL}/favorite/my-all`, {
-                headers: {
-                    'Content-Type': 'application/json'
-                }
+                credentials: 'include' // 使用session认证
             });
             
             if (response.ok) {
@@ -82,6 +69,9 @@ const MapPage = () => {
                     }
                 });
                 return favoritesMap;
+            } else if (response.status === 401 || response.status === 403) {
+                console.log('User not authenticated for favorites');
+                return {};
             }
             return {};
         } catch (error) {
@@ -90,23 +80,27 @@ const MapPage = () => {
         }
     }, []);
 
-    // 加载用户收藏 - 在组件初始化时调用
+    // 每次组件加载时都重新加载收藏
     const loadUserFavorites = async () => {
-        
         setIsCheckingFavorite(true);
         try {
             const favoritesMap = await fetchUserFavorites();
-            // 合并localStorage和服务器端的收藏状态
-            const currentFavorites = JSON.parse(localStorage.getItem('mapFavorites') || '{}');
-            const mergedFavorites = { ...currentFavorites, ...favoritesMap };
             
-            setFavorites(mergedFavorites);
-            saveFavoritesToLocalStorage(mergedFavorites);
+            // 使用服务器返回的收藏状态
+            setFavorites(favoritesMap);
+            saveFavoritesToSessionStorage(favoritesMap);
             console.log(`Loaded ${Object.keys(favoritesMap).length} favorites from server`);
         } catch (error) {
             console.error('Failed to load favorites from server:', error);
-            // 使用localStorage中的收藏状态
-            console.log('Using localStorage favorites instead');
+            // 尝试从sessionStorage恢复
+            try {
+                const savedFavorites = sessionStorage.getItem('mapFavorites');
+                if (savedFavorites) {
+                    setFavorites(JSON.parse(savedFavorites));
+                }
+            } catch (e) {
+                console.log('No cached favorites available');
+            }
         } finally {
             setIsCheckingFavorite(false);
         }
@@ -122,12 +116,9 @@ const MapPage = () => {
         if (!selectedLocation) return;
         
         try {
-            
             const response = await fetch(`${API_BASE_URL}/favorite/${selectedLocation}`, {
                 method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
+                credentials: 'include' // 使用session认证
             });
             
             if (response.ok || response.status === 409) {
@@ -149,12 +140,9 @@ const MapPage = () => {
         if (!selectedLocation) return;
         
         try {
-            
             const response = await fetch(`${API_BASE_URL}/favorite/${selectedLocation}`, {
                 method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
+                credentials: 'include' // 使用session认证
             });
             
             if (response.ok) {
@@ -203,7 +191,7 @@ const MapPage = () => {
                 const formattedComments = commentsData.map(comment => ({
                     id: comment.commentId,
                     userId: comment.userId,
-                    username: comment.username || `User ${comment.userId.substring(0, 6)}`, // 如果没有用户名，使用用户ID前6位
+                    username: comment.username || `User ${comment.userId.substring(0, 6)}`,
                     text: comment.content,
                     date: new Date(comment.timestamp).toLocaleDateString('en-US', {
                         year: 'numeric',
@@ -236,9 +224,6 @@ const MapPage = () => {
     const submitComment = async () => {
         if (!newComment.trim() || !selectedLocation) return;
         
-        
-        const token = getAuthToken();
-        
         try {
             setCommentError('');
             const response = await fetch(`${API_BASE_URL}/comment/send`, {
@@ -246,6 +231,7 @@ const MapPage = () => {
                 headers: {
                     'Content-Type': 'application/json'
                 },
+                credentials: 'include', // 使用session认证
                 body: JSON.stringify({
                     locID: selectedLocation,
                     content: newComment.trim()
@@ -283,13 +269,10 @@ const MapPage = () => {
             return;
         }
         
-        const token = getAuthToken();
         try {
             const response = await fetch(`${API_BASE_URL}/comment/del/${commentId}`, {
                 method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
+                credentials: 'include' // 使用session认证
             });
             
             if (response.ok) {
@@ -605,13 +588,42 @@ const MapPage = () => {
         });
     };
 
-
+    // 处理从LocationsPage导航过来的逻辑
+    useEffect(() => {
+        if (!processedNavigation && location.state && location.state.selectedLocationId && locations.length > 0) {
+            const locationId = location.state.selectedLocationId;
+            console.log('Processing navigation from LocationsPage, locationId:', locationId);
+            
+            const foundLocation = locations.find(loc => loc.id === locationId);
+            if (foundLocation) {
+                console.log('Found location, opening sidebar...');
+                setSelectedLocation(locationId);
+                setIsCommentsPaneOpen(true);
+                
+                // 加载评论和收藏
+                fetchLocationComments(locationId);
+                loadUserFavorites();
+                
+                // 移动地图到该位置
+                if (mapInstanceRef.current) {
+                    const lat = foundLocation.originalLatitude || foundLocation.latitude;
+                    const lng = foundLocation.originalLongitude || foundLocation.longitude;
+                    mapInstanceRef.current.setView([lat, lng], 20);
+                }
+                
+                // 标记导航已处理
+                setProcessedNavigation(true);
+                
+                // 清除导航状态，避免重复执行
+                navigate(location.pathname, { replace: true, state: {} });
+            }
+        }
+    }, [location.state, locations, processedNavigation]);
 
     // Component mount
     useEffect(() => {
         console.log('MapPage component mounted');
         fetchLocations();
-        loadUserFavorites(); // 加载收藏
         
         return () => {
             if (mapInstanceRef.current) {
@@ -619,18 +631,6 @@ const MapPage = () => {
                 mapInstanceRef.current = null;
             }
         };
-    }, []);
-
-    // 监听storage事件，当token变化时重新加载收藏
-    useEffect(() => {
-        const handleStorageChange = (e) => {
-            if (e.key === 'token') {
-                loadUserFavorites();
-            }
-        };
-        
-        window.addEventListener('storage', handleStorageChange);
-        return () => window.removeEventListener('storage', handleStorageChange);
     }, []);
 
     // 监听用户登录状态变化
@@ -659,6 +659,9 @@ const MapPage = () => {
         // 从后端加载评论
         await fetchLocationComments(locationId);
         
+        // 每次点击标记时都重新加载收藏状态
+        await loadUserFavorites();
+        
         // Move to selected location
         if (mapInstanceRef.current) {
             const lat = location.originalLatitude || location.latitude;
@@ -669,10 +672,13 @@ const MapPage = () => {
 
     const closeCommentsPane = () => {
         setIsCommentsPaneOpen(false);
-        setSelectedLocation(null); // Clear selected location to show all markers again
-        setComments([]); // 清空评论，下次打开会重新加载
-        setNewComment(''); // 清空评论输入框
-        setCommentError(''); // 清空评论错误信息
+        setSelectedLocation(null);
+        setComments([]);
+        setNewComment('');
+        setCommentError('');
+        
+        // 重置导航处理标志
+        setProcessedNavigation(false);
         
         // Return to overall view
         if (mapInstanceRef.current && locations.length > 0) {
@@ -684,122 +690,11 @@ const MapPage = () => {
 
     const refreshData = () => {
         fetchLocations();
-        loadUserFavorites();
+        // 刷新时也重新加载收藏
+        if (selectedLocation) {
+            loadUserFavorites();
+        }
     };
-
-
-    useEffect(() => {
-        // 检查是否有从 LocationsPage 传递过来的选中地点
-        if (location.state && location.state.selectedLocationId) {
-          const locationId = location.state.selectedLocationId;
-          console.log('Received location ID from navigation:', locationId);
-          
-          // 等待地点数据加载完成后再处理
-          if (locations.length > 0) {
-            const foundLocation = locations.find(loc => loc.id === locationId);
-            if (foundLocation) {
-              // 延迟执行以确保地图已初始化
-              setTimeout(() => {
-                handleMarkerClick(locationId);
-              }, 100);
-            } else {
-              console.warn(`Location with ID ${locationId} not found in loaded data`);
-            }
-          }
-        }
-      }, [locations, location.state]); // 依赖 locations 和 location.state
-      
-      // 修改：在 locations 加载完成后检查是否有传递的选中地点
-      useEffect(() => {
-        if (locations.length > 0 && location.state && location.state.selectedLocationId) {
-          const locationId = location.state.selectedLocationId;
-          const foundLocation = locations.find(loc => loc.id === locationId);
-          
-          if (foundLocation) {
-            // 设置选中地点
-            setSelectedLocation(locationId);
-            setIsCommentsPaneOpen(true);
-            
-            // 移动地图到该位置
-            if (mapInstanceRef.current) {
-              const lat = foundLocation.originalLatitude || foundLocation.latitude;
-              const lng = foundLocation.originalLongitude || foundLocation.longitude;
-              mapInstanceRef.current.setView([lat, lng], 20);
-            }
-            
-            // 加载评论
-            fetchLocationComments(locationId);
-            
-            // 清除状态，避免重复触发
-            // 注意：我们不能直接修改 location.state，但可以清除本地状态
-            // 或者通过 navigate 替换状态
-            navigate(location.pathname, { replace: true, state: {} });
-          }
-        }
-      }, [locations, location.state, mapInstanceRef.current]);
-
-      useEffect(() => {
-        // 只在组件挂载后执行一次
-        const handleNavigationFromLocationsPage = async () => {
-          // 检查是否有从 LocationsPage 传递过来的选中地点
-          if (location.state && location.state.selectedLocationId) {
-            const locationId = location.state.selectedLocationId;
-            console.log('Processing navigation from LocationsPage, locationId:', locationId);
-            
-            // 等待地点数据加载
-            if (locations.length === 0) {
-              console.log('Waiting for locations to load...');
-              // 如果地点数据还没加载，设置一个检查间隔
-              const checkInterval = setInterval(() => {
-                if (locations.length > 0) {
-                  clearInterval(checkInterval);
-                  const foundLocation = locations.find(loc => loc.id === locationId);
-                  if (foundLocation) {
-                    console.log('Found location, opening sidebar...');
-                    setSelectedLocation(locationId);
-                    setIsCommentsPaneOpen(true);
-                    fetchLocationComments(locationId);
-                    
-                    // 移动地图
-                    if (mapInstanceRef.current) {
-                      const lat = foundLocation.originalLatitude || foundLocation.latitude;
-                      const lng = foundLocation.originalLongitude || foundLocation.longitude;
-                      mapInstanceRef.current.setView([lat, lng], 20);
-                    }
-                    
-                    // 清除导航状态
-                    navigate(location.pathname, { replace: true });
-                  }
-                }
-              }, 100);
-              
-              // 5秒后清除检查间隔
-              setTimeout(() => clearInterval(checkInterval), 5000);
-            } else {
-              // 如果地点数据已经加载
-              const foundLocation = locations.find(loc => loc.id === locationId);
-              if (foundLocation) {
-                console.log('Found location in existing data, opening sidebar...');
-                setSelectedLocation(locationId);
-                setIsCommentsPaneOpen(true);
-                fetchLocationComments(locationId);
-                
-                // 移动地图
-                if (mapInstanceRef.current) {
-                  const lat = foundLocation.originalLatitude || foundLocation.latitude;
-                  const lng = foundLocation.originalLongitude || foundLocation.longitude;
-                  mapInstanceRef.current.setView([lat, lng], 20);
-                }
-                
-                // 清除导航状态
-                navigate(location.pathname, { replace: true });
-              }
-            }
-          }
-        };
-        
-        handleNavigationFromLocationsPage();
-      }, [location.state]); // 只依赖 location.state
 
     // 如果用户未登录，显示重定向提示
     if (!user) {
@@ -1039,7 +934,10 @@ const MapPage = () => {
                                         Comments ({comments.length})
                                     </h4>
                                     <button
-                                        onClick={() => fetchLocationComments(selectedLocation)}
+                                        onClick={() => {
+                                            fetchLocationComments(selectedLocation);
+                                            loadUserFavorites(); // 刷新时重新加载收藏
+                                        }}
                                         style={{
                                             background: '#f8f9fa',
                                             border: '1px solid #ddd',
@@ -1114,7 +1012,7 @@ const MapPage = () => {
                                                 <div style={{ fontSize: '0.9rem' }}>
                                                     {comment.text}
                                                 </div>
-                                                {/* Delete button (only for user's own comments) */}
+                                                {/* Delete button */}
                                                 {(
                                                     <button
                                                         onClick={() => deleteComment(comment.id)}
