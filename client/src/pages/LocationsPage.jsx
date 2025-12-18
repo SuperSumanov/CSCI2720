@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useNavigate } from 'react-router-dom'; // 新增：导入 useNavigate
+import { useNavigate } from 'react-router-dom';
 import "../styles/locations.css";
 
 const LocationsPage = () => {
-  const navigate = useNavigate(); // 新增：使用 useNavigate 钩子
+  const navigate = useNavigate();
   const [allLocations, setAllLocations] = useState([]);
   const [sortKey, setSortKey] = useState("name");
   const [sortOrder, setSortOrder] = useState("asc");
@@ -16,9 +16,25 @@ const LocationsPage = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loginTime, setLoginTime] = useState(null);
 
-  // 新增：处理地点点击事件
+  // 新增：处理查看地图按钮点击事件
+  const handleViewMap = () => {
+    // 将当前过滤条件和过滤后的地点ID列表传递给地图页面
+    const filteredIds = filteredAndSorted.map(loc => loc.id);
+    
+    navigate('/map', { 
+      state: { 
+        filterState: {
+          search,
+          maxDistance,
+          selectedArea,
+          filteredLocationIds: filteredIds
+        }
+      } 
+    });
+  };
+
+  // 原有 handleLocationClick 保持不变
   const handleLocationClick = (locationId, locationName) => {
-    // 跳转到地图页面，并传递选中地点的ID和名称
     navigate('/map', { 
       state: { 
         selectedLocationId: locationId,
@@ -199,10 +215,19 @@ const LocationsPage = () => {
     }
   };
 
-  const allAreas = useMemo(
-    () => ["All", ...new Set(allLocations.map((l) => l.area))],
-    [allLocations]
-  );
+  // 修复：确保allAreas不包含undefined值
+  const allAreas = useMemo(() => {
+    // 从所有地点中提取有效的area值
+    const validAreas = allLocations
+      .map((l) => l.area)
+      .filter(area => area && area.trim() !== "" && area !== "Unknown");
+    
+    // 使用Set去重并排序
+    const uniqueAreas = [...new Set(validAreas)].sort();
+    
+    // 返回包含"All"选项的数组
+    return ["All", ...uniqueAreas];
+  }, [allLocations]);
 
   // === Filtering + sorting ===
   const filteredAndSorted = useMemo(() => {
@@ -211,7 +236,7 @@ const LocationsPage = () => {
         loc.name?.toLowerCase().includes(search.toLowerCase()) &&
         loc.distance <= maxDistance &&
         (selectedArea === "All" || loc.area === selectedArea) &&
-        loc.area !== "Unknown" && loc.area.trim() !== "" // 新增：确保 area 有值
+        loc.area !== "Unknown" && loc.area.trim() !== ""
     );
 
     list.sort((a, b) => {
@@ -237,6 +262,48 @@ const LocationsPage = () => {
   return (
     <main className="locations-page">
       <h2>Programme Locations</h2>
+
+      {/* === 新增：查看地图按钮 === */}
+      <div style={{ 
+        marginBottom: "20px", 
+        display: "flex", 
+        justifyContent: "flex-end",
+        gap: "10px"
+      }}>
+        <button
+          onClick={handleViewMap}
+          disabled={filteredAndSorted.length === 0}
+          style={{
+            padding: "8px 16px",
+            backgroundColor: filteredAndSorted.length === 0 ? "#cccccc" : "#4CAF50",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: filteredAndSorted.length === 0 ? "not-allowed" : "pointer",
+            fontWeight: "bold",
+            fontSize: "14px",
+            opacity: filteredAndSorted.length === 0 ? 0.7 : 1
+          }}
+          title={filteredAndSorted.length === 0 ? "No locations to display on map" : "View filtered locations on map"}
+        >
+          View Filtered Locations on Map
+        </button>
+        
+        <button
+          onClick={() => navigate('/map')}
+          style={{
+            padding: "8px 16px",
+            backgroundColor: "#2196F3",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+            fontSize: "14px"
+          }}
+        >
+          View All Locations on Map
+        </button>
+      </div>
 
       {/* === FILTER BLOCK === */}
       <div className="filters">
@@ -310,9 +377,9 @@ const LocationsPage = () => {
               filteredAndSorted.map((loc) => (
                 <tr 
                   key={loc.id}
-                  className="location-row" // 新增：添加类名用于样式
-                  onClick={() => handleLocationClick(loc.id, loc.name)} // 新增：行点击事件
-                  style={{ cursor: 'pointer' }} // 新增：鼠标指针样式
+                  className="location-row"
+                  onClick={() => handleLocationClick(loc.id, loc.name)}
+                  style={{ cursor: 'pointer' }}
                 >
                   <td>{loc.id}</td>
                   <td>{loc.name}</td>
@@ -324,7 +391,7 @@ const LocationsPage = () => {
                       className={`fav-btn ${
                         favorites.includes(loc.id) ? "active" : ""
                       } ${!isLoggedIn ? "disabled" : ""}`}
-                      onClick={(e) => toggleFavorite(loc.id, e)} // 修改：传递事件对象
+                      onClick={(e) => toggleFavorite(loc.id, e)}
                       disabled={loadingFavorites || !isLoggedIn}
                       title={!isLoggedIn ? "Login to add favorites" : ""}
                     >
@@ -343,9 +410,27 @@ const LocationsPage = () => {
           </tbody>
         </table>
       </div>
-      <p style={{ marginTop: "16px", fontStyle: "italic", color: "#555" }}>
-        Last updated time: {new Date(loginTime).toLocaleString()}
-      </p>
+      
+      {/* === 新增：过滤信息统计 === */}
+      <div style={{ 
+        marginTop: "16px", 
+        display: "flex", 
+        justifyContent: "space-between",
+        alignItems: "center"
+      }}>
+        <div style={{ fontStyle: "italic", color: "#555" }}>
+          Last updated time: {loginTime ? new Date(loginTime).toLocaleString() : "N/A"}
+        </div>
+        <div style={{ 
+          backgroundColor: "#f0f0f0",
+          padding: "8px 16px",
+          borderRadius: "4px",
+          fontSize: "14px",
+          fontWeight: "bold"
+        }}>
+          Showing {filteredAndSorted.length} of {allLocations.length} locations
+        </div>
+      </div>
     </main>
   );
 };
